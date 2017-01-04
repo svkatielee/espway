@@ -19,7 +19,8 @@
 // IMU algorithm update
 
 void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
-    int16_t data[], quaternion_fix * const q) {
+    int16_t axi, int16_t ayi, int16_t azi, int16_t gxi, int16_t gyi, int16_t gzi,
+    quaternion_fix * const q) {
     q16 recipNorm;
     q16 q0, q1, q2, q3;
     q16 s0, s1, s2, s3;
@@ -31,9 +32,7 @@ void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
     q2 = q->q2;
     q3 = q->q3;
 
-    q16 gx = data[GYRO_X_IDX],
-        gy = data[GYRO_Y_IDX],
-        gz = data[GYRO_Z_IDX];
+    q16 gx = gxi, gy = gyi, gz = gzi;
 
     // Rate of change of quaternion from gyroscope
     // NOTE these values are actually double the actual values but it
@@ -45,10 +44,8 @@ void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
 
     // Compute feedback only if accelerometer measurement valid
     // (avoids NaN in accelerometer normalisation)
-    if (data[ACC_X_IDX] != 0 || data[ACC_Y_IDX] != 0 || data[ACC_Z_IDX] != 0) {
-        q16 ax = data[ACC_X_IDX],
-            ay = data[ACC_Y_IDX],
-            az = data[ACC_Z_IDX];
+    if (axi != 0 || ayi != 0 || azi != 0) {
+        q16 ax = axi, ay = ayi, az = azi;
         // Normalise accelerometer measurement
         recipNorm = q16_mul(ax, ax);
         recipNorm += q16_mul(ay, ay);
@@ -100,4 +97,3 @@ void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
     q->q2 = q16_mul(q2, recipNorm);
     q->q3 = q16_mul(q3, recipNorm);
 }
-

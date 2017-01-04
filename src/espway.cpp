@@ -13,19 +13,35 @@
 #include <MadgwickAHRS_fix.h>
 
 
+enum mode { TEST_FREQ, LOG_RAW, LOG_GRAVXY };
+
+
 MPU6050 mpu;
 int16_t ax, ay, az, gx, gy, gz;
+quaternion_fix quat = { Q16_MULTIPLIER, 0, 0, 0 };
+q16 beta, gyroIntegrationFactor;
+float BETA = 0.05f;
+const int MPU_RATE = 0;
 
-const bool logFrequency = true;
+const mode MYMODE = LOG_QUAT;
 const int nSamples = 1000;
 unsigned long lastTime = 0;
 int sampleCounter = 0;
+
+
+void calculateIMUCoeffs() {
+    float sampleTime = (1.0f + MPU_RATE) / 1000.0f;
+    float gyroScale = 2.0f * M_PI / 180.0f * 2000.0f;
+    gyroIntegrationFactor = float_to_q16(0.5f * gyroScale * sampleTime);
+    beta = float_to_q16(BETA / (0.5f * gyroScale));
+}
 
 
 volatile bool intFlag = false;
 void mpuInterrupt() {
     intFlag = true;
 }
+
 
 void setup() {
     Serial.begin(115200);
@@ -34,8 +50,9 @@ void setup() {
     Wire.begin(0, 5);
     Wire.setClock(400000);
     // MPU6050 initialization
+    calculateIMUCoeffs();
     mpu.initialize();
-    mpu.setRate(0);
+    mpu.setRate(MPU_RATE);
     mpu.setDLPFMode(MPU6050_DLPF_BW_20);
     mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
     mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_2000);
@@ -62,14 +79,19 @@ void loop() {
     mpu.getIntStatus();
 
     mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+    MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor, ax, ay, az, gx, gy, gz, &quat);
 
-    if (!logFrequency) {
+    if (MYMODE == LOG_RAW) {
         Serial.print(ax); Serial.print(",");
         Serial.print(ay); Serial.print(",");
         Serial.print(az); Serial.print(",");
         Serial.print(gx); Serial.print(",");
         Serial.print(gy); Serial.print(",");
         Serial.println(gz);
+    } else if (MYMODE == LOG_GRAVXY) {
+    	q16 half_gravx = q16_mul(quat.q1, quat.q3) - q16_mul(quat.q0, quat.q2);
+    	q16 half_gravy = q16_mul(quat.q0, quat.q1) + q16_mul(quat.q2, quat.q3);
+        Serial.printf("%d, %d\n", half_gravx, half_gravy);
     } else {
         unsigned long ms = millis();
         if (++sampleCounter == nSamples) {
