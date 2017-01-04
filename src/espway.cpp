@@ -13,18 +13,18 @@
 #include <MadgwickAHRS_fix.h>
 
 
-enum mode { TEST_FREQ, LOG_RAW, LOG_GRAVXY };
+enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY };
 
+const float BETA = 0.05f;
+const int MPU_RATE = 0;
+const mode MYMODE = LOG_FREQ;
+const int N_SAMPLES = 1000;
 
 MPU6050 mpu;
 int16_t ax, ay, az, gx, gy, gz;
 quaternion_fix quat = { Q16_MULTIPLIER, 0, 0, 0 };
 q16 beta, gyroIntegrationFactor;
-float BETA = 0.05f;
-const int MPU_RATE = 0;
 
-const mode MYMODE = LOG_QUAT;
-const int nSamples = 1000;
 unsigned long lastTime = 0;
 int sampleCounter = 0;
 
@@ -75,11 +75,12 @@ void loop() {
         return;
     }
 
+    // Perform MPU quaternion update
     intFlag = false;
     mpu.getIntStatus();
-
     mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-    MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor, ax, ay, az, gx, gy, gz, &quat);
+    MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor,
+        ax, ay, az, gx, gy, gz, &quat);
 
     if (MYMODE == LOG_RAW) {
         Serial.print(ax); Serial.print(",");
@@ -94,8 +95,8 @@ void loop() {
         Serial.printf("%d, %d\n", half_gravx, half_gravy);
     } else {
         unsigned long ms = millis();
-        if (++sampleCounter == nSamples) {
-            Serial.println(nSamples * 1000 / (ms - lastTime));
+        if (++sampleCounter == N_SAMPLES) {
+            Serial.println(N_SAMPLES * 1000 / (ms - lastTime));
             sampleCounter = 0;
             lastTime = ms;
         }
