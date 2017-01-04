@@ -13,11 +13,11 @@
 #include <MadgwickAHRS_fix.h>
 
 
-enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY };
+enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY, LOG_NONE };
 
 const float BETA = 0.05f;
 const int MPU_RATE = 0;
-const mode MYMODE = LOG_FREQ;
+const mode MYMODE = LOG_NONE;
 const int N_SAMPLES = 1000;
 
 AsyncWebServer server(80);
@@ -32,6 +32,21 @@ unsigned long lastTime = 0;
 int sampleCounter = 0;
 
 
+void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
+    AwsEventType type, void * arg, uint8_t *data, size_t len) {
+    // Received data frame from websocket, send back the quaternion
+
+    int16_t qdata[] = {
+        quat.q0 / 2,
+        quat.q1 / 2,
+        quat.q2 / 2,
+        quat.q3 / 2
+    };
+
+    client->binary((uint8_t *)qdata, 8);
+}
+
+
 void calculateIMUCoeffs() {
     float sampleTime = (1.0f + MPU_RATE) / 1000.0f;
     float gyroScale = 2.0f * M_PI / 180.0f * 2000.0f;
@@ -42,7 +57,7 @@ void calculateIMUCoeffs() {
 
 volatile bool intFlag = false;
 void mpuInterrupt() {
-    //intFlag = true;
+    intFlag = true;
 }
 
 
@@ -71,6 +86,9 @@ void setup() {
     ArduinoOTA.begin();
 
     SPIFFS.begin();
+
+    ws.onEvent(wsCallback);
+    server.addHandler(&ws);
 
     server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
     server.onNotFound([](AsyncWebServerRequest *req) {
@@ -104,7 +122,7 @@ void loop() {
     	q16 half_gravx = q16_mul(quat.q1, quat.q3) - q16_mul(quat.q0, quat.q2);
     	q16 half_gravy = q16_mul(quat.q0, quat.q1) + q16_mul(quat.q2, quat.q3);
         Serial.printf("%d, %d\n", half_gravx, half_gravy);
-    } else {
+    } else if (MYMODE == LOG_FREQ) {
         unsigned long ms = millis();
         if (++sampleCounter == N_SAMPLES) {
             Serial.println(N_SAMPLES * 1000 / (ms - lastTime));
