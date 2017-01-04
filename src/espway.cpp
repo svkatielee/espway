@@ -20,6 +20,9 @@ const int MPU_RATE = 0;
 const mode MYMODE = LOG_FREQ;
 const int N_SAMPLES = 1000;
 
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+
 MPU6050 mpu;
 int16_t ax, ay, az, gx, gy, gz;
 quaternion_fix quat = { Q16_MULTIPLIER, 0, 0, 0 };
@@ -39,7 +42,7 @@ void calculateIMUCoeffs() {
 
 volatile bool intFlag = false;
 void mpuInterrupt() {
-    intFlag = true;
+    //intFlag = true;
 }
 
 
@@ -66,6 +69,14 @@ void setup() {
     WiFi.softAP("ESPway");
     // ArduinoOTA init
     ArduinoOTA.begin();
+
+    SPIFFS.begin();
+
+    server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
+    server.onNotFound([](AsyncWebServerRequest *req) {
+        req->send(404);
+    });
+    server.begin();
 }
 
 
