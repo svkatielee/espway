@@ -19,6 +19,7 @@ const float BETA = 0.05f;
 const int MPU_RATE = 0;
 const mode MYMODE = LOG_NONE;
 const int N_SAMPLES = 1000;
+const int QUAT_DELAY = 50;
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -28,21 +29,19 @@ int16_t ax, ay, az, gx, gy, gz;
 quaternion_fix quat = { Q16_MULTIPLIER, 0, 0, 0 };
 q16 beta, gyroIntegrationFactor;
 
+unsigned long lastSentQuat = 0;
+bool sendQuat = false;
+AsyncWebSocketClient *wsclient = NULL;
 unsigned long lastTime = 0;
 int sampleCounter = 0;
 
 
 void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
     AwsEventType type, void * arg, uint8_t *data, size_t len) {
-    // Received data frame from websocket, send back the quaternion
+    // Received data frame from websocket, mark that we should send back the quaternion
 
-    int16_t qdata[4];
-    qdata[0] = quat.q0 / 2;
-    qdata[1] = quat.q1 / 2;
-    qdata[2] = quat.q2 / 2;
-    qdata[3] = quat.q3 / 2;
-
-    client->binary((uint8_t *)qdata, 8);
+    sendQuat = true;
+    wsclient = client;
 }
 
 
@@ -128,5 +127,17 @@ void loop() {
             sampleCounter = 0;
             lastTime = ms;
         }
+    }
+
+    unsigned long ms = millis();
+    if (sendQuat && ms - lastSentQuat > QUAT_DELAY) {
+        int16_t qdata[4];
+        qdata[0] = quat.q0 / 2;
+        qdata[1] = quat.q1 / 2;
+        qdata[2] = quat.q2 / 2;
+        qdata[3] = quat.q3 / 2;
+        wsclient->binary((uint8_t *)qdata, 8);
+        sendQuat = false;
+        lastSentQuat = ms;
     }
 }
