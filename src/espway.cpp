@@ -36,12 +36,11 @@ void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
     AwsEventType type, void * arg, uint8_t *data, size_t len) {
     // Received data frame from websocket, send back the quaternion
 
-    int16_t qdata[] = {
-        quat.q0 / 2,
-        quat.q1 / 2,
-        quat.q2 / 2,
-        quat.q3 / 2
-    };
+    int16_t qdata[4];
+    qdata[0] = quat.q0 / 2;
+    qdata[1] = quat.q1 / 2;
+    qdata[2] = quat.q2 / 2;
+    qdata[3] = quat.q3 / 2;
 
     client->binary((uint8_t *)qdata, 8);
 }
