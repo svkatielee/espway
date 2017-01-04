@@ -69,7 +69,7 @@ void setup() {
     calculateIMUCoeffs();
     mpu.initialize();
     mpu.setRate(MPU_RATE);
-    mpu.setDLPFMode(MPU6050_DLPF_BW_20);
+    mpu.setDLPFMode(MPU6050_DLPF_BW_188);
     mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
     mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_2000);
     mpu.setIntDataReadyEnabled(true);
