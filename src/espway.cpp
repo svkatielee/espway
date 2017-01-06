@@ -1,16 +1,13 @@
 #include <Arduino.h>
 #include <Hash.h>
 #include <Wire.h>
-
 #include <ESP8266mDNS.h>
 #include <ArduinoOTA.h>
-
 #include <I2Cdev.h>
 #include <MPU6050.h>
-
 #include <ESPAsyncWebServer.h>
-
 #include <MadgwickAHRS_fix.h>
+#include <NeoPixelBus.h>
 
 
 enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY, LOG_NONE };
@@ -34,6 +31,11 @@ bool sendQuat = false;
 AsyncWebSocketClient *wsclient = NULL;
 unsigned long lastTime = 0;
 int sampleCounter = 0;
+
+NeoPixelBus<NeoGrbFeature, NeoEsp8266Dma800KbpsMethod> eyes(2);
+RgbColor black(0);
+RgbColor red(180, 0, 0);
+RgbColor yellow(180, 180, 0);
 
 
 void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
@@ -61,6 +63,12 @@ void mpuInterrupt() {
 
 void setup() {
     Serial.begin(115200);
+
+    // NeoPixel eyes initialization
+    eyes.Begin();
+    eyes.SetPixelColor(0, red);
+    eyes.SetPixelColor(1, yellow);
+    eyes.Show();
 
     // I2C initialization
     Wire.begin(0, 5);
