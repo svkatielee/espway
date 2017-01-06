@@ -32,7 +32,7 @@ AsyncWebSocketClient *wsclient = NULL;
 unsigned long lastTime = 0;
 int sampleCounter = 0;
 
-NeoPixelBus<NeoGrbFeature, NeoEsp8266Dma800KbpsMethod> eyes(2);
+NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> eyes(2);
 RgbColor black(0);
 RgbColor red(180, 0, 0);
 RgbColor yellow(180, 180, 0);
