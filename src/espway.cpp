@@ -10,13 +10,17 @@
 #include <NeoPixelBus.h>
 
 
-enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY, LOG_NONE };
+enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY, LOG_NONE, GYRO_CALIB };
 
 const float BETA = 0.05f;
 const int MPU_RATE = 0;
 const mode MYMODE = LOG_NONE;
 const int N_SAMPLES = 1000;
 const int QUAT_DELAY = 100;
+const int N_GYRO_SAMPLES = 10000;
+const int GYRO_OFFSETS[] = { 11, -7, 13 };
+long int gyroOffsetAccum[] = { 0, 0, 0 };
+int nGyroSamples = 0;
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -84,6 +88,9 @@ void setup() {
     mpu.setInterruptMode(MPU6050_INTMODE_ACTIVELOW);
     mpu.setInterruptDrive(MPU6050_INTDRV_PUSHPULL);
     mpu.setIntEnabled(true);
+    mpu.setXGyroOffset(GYRO_OFFSETS[0]);
+    mpu.setYGyroOffset(GYRO_OFFSETS[1]);
+    mpu.setZGyroOffset(GYRO_OFFSETS[2]);
     attachInterrupt(4, mpuInterrupt, RISING);
 
     // WiFi soft AP init
@@ -117,6 +124,7 @@ void loop() {
     MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor,
         ax, ay, az, gx, gy, gz, &quat);
 
+
     if (MYMODE == LOG_RAW) {
         Serial.print(ax); Serial.print(",");
         Serial.print(ay); Serial.print(",");
@@ -134,6 +142,18 @@ void loop() {
             Serial.println(N_SAMPLES * 1000 / (ms - lastTime));
             sampleCounter = 0;
             lastTime = ms;
+        }
+    } else if (MYMODE == GYRO_CALIB && nGyroSamples != N_GYRO_SAMPLES) {
+        gyroOffsetAccum[0] += gx;
+        gyroOffsetAccum[1] += gy;
+        gyroOffsetAccum[2] += gz;
+        nGyroSamples += 1;
+
+        if (nGyroSamples == N_GYRO_SAMPLES) {
+            Serial.println("Gyro offsets:");
+            Serial.print("X: "); Serial.println(gyroOffsetAccum[0] / N_GYRO_SAMPLES);
+            Serial.print("Y: "); Serial.println(gyroOffsetAccum[1] / N_GYRO_SAMPLES);
+            Serial.print("Z: "); Serial.println(gyroOffsetAccum[2] / N_GYRO_SAMPLES);
         }
     }
 
