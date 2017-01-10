@@ -97,3 +97,11 @@ void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
     q->q2 = q16_mul(q2, recipNorm);
     q->q3 = q16_mul(q3, recipNorm);
 }
+
+q16 sinRoll(quaternion_fix * const quat) {
+    return 2 * (q16_mul(quat->q0, quat->q1) + q16_mul(quat->q2, quat->q3));
+}
+
+q16 sinPitch(quaternion_fix * const quat) {
+    return 2 * (q16_mul(quat->q1, quat->q3) - q16_mul(quat->q0, quat->q2));
+}

@@ -17,6 +17,11 @@ q16 q16_mul(q16 x, q16 y) {
     return (hi << 16) | (prod_lo >> 16);
 }
 
+q16 q16_div(q16 x, q16 y) {
+    int32_t res = x / y;
+    return res << 16;
+}
+
 q16 q16_rsqrt(q16 x) {
     int power = 14 - (__builtin_clz(x) & ~0x01);
 
@@ -43,4 +48,3 @@ int16_t ICACHE_FLASH_ATTR q16_to_int(q16 x) {
 q16 ICACHE_FLASH_ATTR int_to_q16(int16_t x) {
     return x << 16;
 }
-

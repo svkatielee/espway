@@ -30,3 +30,6 @@ typedef struct {
 void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
     int16_t axi, int16_t ayi, int16_t azi, int16_t gxi, int16_t gyi, int16_t gzi,
     quaternion_fix * const q);
+
+q16 sinRoll(quaternion_fix * const quat);
+q16 sinPitch(quaternion_fix * const quat);
