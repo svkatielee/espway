@@ -6,15 +6,17 @@
 #include <I2Cdev.h>
 #include <MPU6050.h>
 #include <ESPAsyncWebServer.h>
-#include <MadgwickAHRS_fix.h>
 #include <NeoPixelBus.h>
 
+#include "MadgwickAHRS_fix.h"
+#include "motor.h"
 
-enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY, LOG_NONE, GYRO_CALIB };
+
+enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY, LOG_PITCH_ROLL, LOG_NONE, GYRO_CALIB };
 
 const float BETA = 0.05f;
 const int MPU_RATE = 0;
-const mode MYMODE = LOG_NONE;
+const mode MYMODE = LOG_PITCH_ROLL;
 const int N_SAMPLES = 1000;
 const int QUAT_DELAY = 100;
 const int N_GYRO_SAMPLES = 10000;
@@ -42,6 +44,12 @@ RgbColor red(180, 0, 0);
 RgbColor yellow(180, 180, 0);
 
 
+void setMotors(q16 leftSpeed, q16 rightSpeed) {
+    setMotorSpeed(14, 12, rightSpeed);
+    setMotorSpeed(13, 15, leftSpeed);
+}
+
+
 void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
     AwsEventType type, void * arg, uint8_t *data, size_t len) {
     // Received data frame from websocket, mark that we should send back the quaternion
@@ -67,6 +75,11 @@ void mpuInterrupt() {
 
 void setup() {
     Serial.begin(115200);
+
+    pinMode(12, OUTPUT);
+    pinMode(13, OUTPUT);
+    pinMode(14, OUTPUT);
+    pinMode(15, OUTPUT);
 
     // NeoPixel eyes initialization
     eyes.Begin();
@@ -123,6 +136,8 @@ void loop() {
     mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
     MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor,
         ax, ay, az, gx, gy, gz, &quat);
+    q16 spitch = sinPitch(&quat);
+    q16 sroll = sinRoll(&quat);
 
 
     if (MYMODE == LOG_RAW) {
@@ -155,6 +170,8 @@ void loop() {
             Serial.print("Y: "); Serial.println(gyroOffsetAccum[1] / N_GYRO_SAMPLES);
             Serial.print("Z: "); Serial.println(gyroOffsetAccum[2] / N_GYRO_SAMPLES);
         }
+    } else if (MYMODE == LOG_PITCH_ROLL) {
+        Serial.printf("%d,%d\n", spitch, sroll);
     }
 
     unsigned long ms = millis();
