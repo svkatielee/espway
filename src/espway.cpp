@@ -10,19 +10,27 @@
 
 #include "MadgwickAHRS_fix.h"
 #include "motor.h"
+#include "pid.h"
 
 
 enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY, LOG_PITCH_ROLL, LOG_NONE, GYRO_CALIB };
 
 const float BETA = 0.05f;
 const int MPU_RATE = 0;
-const mode MYMODE = LOG_PITCH_ROLL;
+const mode MYMODE = LOG_NONE;
 const int N_SAMPLES = 1000;
-const int QUAT_DELAY = 100;
+const int QUAT_DELAY = 50;
 const int N_GYRO_SAMPLES = 10000;
 const int GYRO_OFFSETS[] = { 11, -7, 13 };
 long int gyroOffsetAccum[] = { 0, 0, 0 };
 int nGyroSamples = 0;
+
+pidsettings anglePidSettings;
+pidsettings motorPidSettings;
+pidstate anglePidState;
+pidstate motorPidState;
+
+q16 targetAngle = (q16)(0.2 * Q16_ONE);
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -42,6 +50,30 @@ NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> eyes(2);
 RgbColor black(0);
 RgbColor red(180, 0, 0);
 RgbColor yellow(180, 180, 0);
+
+
+void initPID() {
+    // Motor PID
+    pid_initialize(
+        -Q16_ONE * 4,  // Kp
+        0,  // Ki
+        -Q16_ONE / 10,  // Kd
+        Q16_ONE / 1000,  // dt
+        -Q16_ONE,  // out_min
+        Q16_ONE,  // out_max
+        &motorPidSettings,
+        &motorPidState);
+    // Angle PID
+    pid_initialize(
+        0,  // Kp
+        0,  // Ki
+        0,  // Kd
+        Q16_ONE / 1000,  // dt
+        -PWMRANGE,  // out_min
+         PWMRANGE,  // out_max
+        &anglePidSettings,
+        &anglePidState);
+}
 
 
 void setMotors(q16 leftSpeed, q16 rightSpeed) {
@@ -76,6 +108,7 @@ void mpuInterrupt() {
 void setup() {
     Serial.begin(115200);
 
+    initPID();
     pinMode(12, OUTPUT);
     pinMode(13, OUTPUT);
     pinMode(14, OUTPUT);
@@ -136,9 +169,14 @@ void loop() {
     mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
     MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor,
         ax, ay, az, gx, gy, gz, &quat);
-    q16 spitch = sinPitch(&quat);
     q16 sroll = sinRoll(&quat);
+    q16 spitch = sinPitch(&quat);
 
+    // Perform PID update
+    q16 motorSpeed = pid_compute(spitch, targetAngle,
+        &motorPidSettings, &motorPidState);
+    Serial.printf("%d, %d\n", sroll, motorSpeed);
+    setMotors(motorSpeed, motorSpeed);
 
     if (MYMODE == LOG_RAW) {
         Serial.print(ax); Serial.print(",");

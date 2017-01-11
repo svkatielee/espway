@@ -5,6 +5,7 @@
 #include <c_types.h>
 
 #define Q16_MULTIPLIER 65536
+#define Q16_ONE Q16_MULTIPLIER
 
 typedef int32_t q16;
 
