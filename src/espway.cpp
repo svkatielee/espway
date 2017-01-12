@@ -8,7 +8,7 @@
 #include <ESPAsyncWebServer.h>
 #include <NeoPixelBus.h>
 
-#include "MadgwickAHRS_fix.h"
+#include "imu.h"
 #include "motor.h"
 #include "pid.h"
 
@@ -182,14 +182,15 @@ void loop() {
     if (spitch < Q16_ONE / 2 && spitch > -Q16_ONE / 2) {
         // Estimate travel speed
         const q16 LOWPASS_PARAM = Q16_ONE / 100;
-        q16 speedEstimate = motorSpeed - q16_mul(GYRO_COEFF, gy);
-        travelSpeed = q16_mul(Q16_ONE - LOWPASS_PARAM, travelSpeed) +
-            q16_mul(LOWPASS_PARAM, speedEstimate);
-        // Perform PID update
-        targetAngle = pid_compute(travelSpeed, 0, &anglePidSettings, &anglePidState);
+        // q16 speedEstimate = motorSpeed - q16_mul(GYRO_COEFF, gy);
+        // travelSpeed = q16_mul(Q16_ONE - LOWPASS_PARAM, travelSpeed) +
+        //     q16_mul(LOWPASS_PARAM, speedEstimate);
+        // // Perform PID update
+        // targetAngle = pid_compute(travelSpeed, 0, &anglePidSettings, &anglePidState);
+        targetAngle = 0.2 * Q16_ONE;
         motorSpeed = pid_compute(spitch, targetAngle,
             &motorPidSettings, &motorPidState);
-        setMotors(motorSpeed, motorSpeed);
+        // setMotors(motorSpeed, motorSpeed);
     } else {
         setMotors(0, 0);
     }

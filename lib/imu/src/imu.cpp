@@ -1,5 +1,19 @@
+
+#include "imu.h"
+
+q16 sinRoll(quaternion_fix * const quat) {
+    return 2 * (q16_mul(quat->q0, quat->q1) + q16_mul(quat->q2, quat->q3));
+}
+
+q16 sinPitch(quaternion_fix * const quat) {
+    return 2 * (q16_mul(quat->q1, quat->q3) - q16_mul(quat->q0, quat->q2));
+}
+
+//-----------------------------------------------------------------------------
+// IMU algorithm update
+
 //=============================================================================
-// MadgwickAHRS.c
+// originally from MadgwickAHRS.c
 //=============================================================================
 //
 // Implementation of Madgwick's IMU and AHRS algorithms.
@@ -12,12 +26,6 @@
 // 14/12/2016   Sakari Kapanen  Fixed point version of the algorithm
 //
 //=============================================================================
-
-#include "MadgwickAHRS_fix.h"
-
-//-----------------------------------------------------------------------------
-// IMU algorithm update
-
 void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
     int16_t axi, int16_t ayi, int16_t azi, int16_t gxi, int16_t gyi, int16_t gzi,
     quaternion_fix * const q) {
@@ -96,12 +104,4 @@ void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
     q->q1 = q16_mul(q1, recipNorm);
     q->q2 = q16_mul(q2, recipNorm);
     q->q3 = q16_mul(q3, recipNorm);
-}
-
-q16 sinRoll(quaternion_fix * const quat) {
-    return 2 * (q16_mul(quat->q0, quat->q1) + q16_mul(quat->q2, quat->q3));
-}
-
-q16 sinPitch(quaternion_fix * const quat) {
-    return 2 * (q16_mul(quat->q1, quat->q3) - q16_mul(quat->q0, quat->q2));
 }
