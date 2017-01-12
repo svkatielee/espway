@@ -18,9 +18,8 @@ void quatConjugate(quaternion_fix *q, quaternion_fix *result);
 void quatProduct(quaternion_fix *q1, quaternion_fix *q2, quaternion_fix *result);
 void quatRotate(quaternion_fix *q, quaternion_fix *v, quaternion_fix *result);
 
-void removeGravity(int16_t *acceleration);
-void accelerationToWorldFrame(quaternion_fix *orientation, int16_t *acceleration);
-
+void linearAcceleration(quaternion_fix *orientation, int16_t *rawAccel,
+    int16_t *linearAccel);
 
 q16 sinRoll(quaternion_fix * const quat);
 q16 sinPitch(quaternion_fix * const quat);
@@ -39,5 +38,4 @@ q16 sinPitch(quaternion_fix * const quat);
 //
 //=====================================================================================================
 void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
-    int16_t axi, int16_t ayi, int16_t azi, int16_t gxi, int16_t gyi, int16_t gzi,
-    quaternion_fix * const q);
+    int16_t *rawAccel, int16_t *rawGyro, quaternion_fix * const q);

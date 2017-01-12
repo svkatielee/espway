@@ -38,6 +38,20 @@ void quatRotate(quaternion_fix *q, quaternion_fix *v, quaternion_fix *result) {
     quatProduct(q, &tmp, result);
 }
 
+void linearAcceleration(quaternion_fix *orientation, int16_t *rawAccel,
+    int16_t *linearAccel) {
+    quaternion_fix qRawAccel, qWorldAccel;
+
+    // Rotate the acceleration vector to the world frame
+    qRawAccel = { 0, rawAccel[0], rawAccel[1], rawAccel[2] };
+    quatRotate(orientation, &qRawAccel, &qWorldAccel);
+
+    // Return the resulting acceleration, canceling out gravity
+    linearAccel[0] = qWorldAccel.q1;
+    linearAccel[1] = qWorldAccel.q2;
+    linearAccel[2] = qWorldAccel.q3 - 16383;
+}
+
 q16 sinRoll(quaternion_fix * const quat) {
     return 2 * (q16_mul(quat->q0, quat->q1) + q16_mul(quat->q2, quat->q3));
 }
@@ -64,8 +78,7 @@ q16 sinPitch(quaternion_fix * const quat) {
 //
 //=============================================================================
 void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
-    int16_t axi, int16_t ayi, int16_t azi, int16_t gxi, int16_t gyi, int16_t gzi,
-    quaternion_fix * const q) {
+    int16_t *rawAccel, int16_t *rawGyro, quaternion_fix * const q) {
     q16 recipNorm;
     q16 q0, q1, q2, q3;
     q16 s0, s1, s2, s3;
@@ -77,7 +90,7 @@ void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
     q2 = q->q2;
     q3 = q->q3;
 
-    q16 gx = gxi, gy = gyi, gz = gzi;
+    q16 gx = rawGyro[0], gy = rawGyro[1], gz = rawGyro[2];
 
     // Rate of change of quaternion from gyroscope
     // NOTE these values are actually double the actual values but it
@@ -87,10 +100,10 @@ void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
     qDot2 = q16_mul(q0, gy) - q16_mul(q1, gz) + q16_mul(q3, gx);
     qDot3 = q16_mul(q0, gz) + q16_mul(q1, gy) - q16_mul(q2, gx);
 
+    q16 ax = rawAccel[0], ay = rawAccel[1], az = rawAccel[2];
     // Compute feedback only if accelerometer measurement valid
     // (avoids NaN in accelerometer normalisation)
-    if (axi != 0 || ayi != 0 || azi != 0) {
-        q16 ax = axi, ay = ayi, az = azi;
+    if (ax != 0 || ay != 0 || az != 0) {
         // Normalise accelerometer measurement
         recipNorm = q16_mul(ax, ax);
         recipNorm += q16_mul(ay, ay);

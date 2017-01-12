@@ -15,9 +15,9 @@
 
 enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY, LOG_PITCH_ROLL, LOG_NONE, GYRO_CALIB };
 
-const float BETA = 0.05f;
+const float BETA = 0.1f;
 const int MPU_RATE = 0;
-const mode MYMODE = LOG_PITCH_ROLL;
+const mode MYMODE = LOG_NONE;
 const int N_SAMPLES = 1000;
 const int QUAT_DELAY = 50;
 
@@ -38,6 +38,7 @@ pidstate motorPidState;
 q16 targetAngle = (q16)(0.2 * Q16_ONE);
 q16 motorSpeed = 0;
 q16 travelSpeed = 0;
+int32_t velx = 0, vely = 0;
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -173,15 +174,27 @@ void loop() {
     // Perform MPU quaternion update
     intFlag = false;
     mpu.getIntStatus();
-    mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-    MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor,
-        ax, ay, az, gx, gy, gz, &quat);
+    int16_t rawAccel[3];
+    int16_t rawGyro[3];
+    mpu.getMotion6(&rawAccel[0], &rawAccel[1], &rawAccel[2],
+        &rawGyro[0], &rawGyro[1], &rawGyro[2]);
+    MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor, rawAccel, rawGyro,
+        &quat);
     q16 sroll = sinRoll(&quat);
     q16 spitch = sinPitch(&quat);
+    int16_t linearAccel[3];
+    linearAcceleration(&quat, rawAccel, linearAccel);
+    const q16 LOWPASS_PARAM = Q16_ONE / 500;
+    velx = q16_mul(Q16_ONE - LOWPASS_PARAM, velx) +
+        q16_mul(LOWPASS_PARAM, linearAccel[0]);
+    vely = q16_mul(Q16_ONE - LOWPASS_PARAM, vely) +
+        q16_mul(LOWPASS_PARAM, linearAccel[1]);
+    // Serial.printf("%d,%d\n", linearAccel[0], linearAccel[1]);
+    Serial.printf("%d,%d\n", velx, vely);
+
 
     if (spitch < Q16_ONE / 2 && spitch > -Q16_ONE / 2) {
         // Estimate travel speed
-        const q16 LOWPASS_PARAM = Q16_ONE / 100;
         // q16 speedEstimate = motorSpeed - q16_mul(GYRO_COEFF, gy);
         // travelSpeed = q16_mul(Q16_ONE - LOWPASS_PARAM, travelSpeed) +
         //     q16_mul(LOWPASS_PARAM, speedEstimate);
