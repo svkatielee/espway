@@ -17,7 +17,7 @@ enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY, LOG_PITCH_ROLL, LOG_NONE, GYRO_CALIB 
 
 const float BETA = 0.05f;
 const int MPU_RATE = 0;
-const mode MYMODE = LOG_NONE;
+const mode MYMODE = LOG_PITCH_ROLL;
 const int N_SAMPLES = 1000;
 const int QUAT_DELAY = 50;
 
