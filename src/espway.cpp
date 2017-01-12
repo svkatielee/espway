@@ -14,12 +14,15 @@
 
 
 enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY, LOG_PITCH_ROLL, LOG_NONE, GYRO_CALIB };
+enum state { CALIBRATING, RUNNING };
 
 const float BETA = 0.1f;
 const int MPU_RATE = 0;
 const mode MYMODE = LOG_NONE;
 const int N_SAMPLES = 1000;
 const int QUAT_DELAY = 50;
+
+state myState = CALIBRATING;
 
 // Gyro calibration variables
 const int N_GYRO_SAMPLES = 10000;
@@ -38,7 +41,7 @@ pidstate motorPidState;
 q16 targetAngle = (q16)(0.2 * Q16_ONE);
 q16 motorSpeed = 0;
 q16 travelSpeed = 0;
-int32_t velx = 0, vely = 0;
+int32_t smoothed_accx = 0;
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -183,14 +186,13 @@ void loop() {
     q16 sroll = sinRoll(&quat);
     q16 spitch = sinPitch(&quat);
     int16_t linearAccel[3];
+    int16_t xyproj[2];
     linearAcceleration(&quat, rawAccel, linearAccel);
-    const q16 LOWPASS_PARAM = Q16_ONE / 500;
-    velx = q16_mul(Q16_ONE - LOWPASS_PARAM, velx) +
-        q16_mul(LOWPASS_PARAM, linearAccel[0]);
-    vely = q16_mul(Q16_ONE - LOWPASS_PARAM, vely) +
-        q16_mul(LOWPASS_PARAM, linearAccel[1]);
-    // Serial.printf("%d,%d\n", linearAccel[0], linearAccel[1]);
-    Serial.printf("%d,%d\n", velx, vely);
+    linearAccelerationXYProjection(&quat, linearAccel, xyproj);
+    const q16 LOWPASS_PARAM = Q16_ONE / 200;
+    smoothed_accx = q16_mul(Q16_ONE - LOWPASS_PARAM, smoothed_accx) +
+        q16_mul(LOWPASS_PARAM, xyproj[0]);
+    Serial.printf("%d\n", smoothed_accx);
 
 
     if (spitch < Q16_ONE / 2 && spitch > -Q16_ONE / 2) {

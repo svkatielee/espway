@@ -20,6 +20,8 @@ void quatRotate(quaternion_fix *q, quaternion_fix *v, quaternion_fix *result);
 
 void linearAcceleration(quaternion_fix *orientation, int16_t *rawAccel,
     int16_t *linearAccel);
+void linearAccelerationXYProjection(quaternion_fix *orientation,
+    int16_t *linearAccel, int16_t *xyprojection);
 
 q16 sinRoll(quaternion_fix * const quat);
 q16 sinPitch(quaternion_fix * const quat);

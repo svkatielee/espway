@@ -38,7 +38,7 @@ void quatRotate(quaternion_fix *q, quaternion_fix *v, quaternion_fix *result) {
     quatProduct(q, &tmp, result);
 }
 
-void linearAcceleration(quaternion_fix *orientation, int16_t *rawAccel,
+void linearAcceleration(quaternion_fix * orientation, int16_t *rawAccel,
     int16_t *linearAccel) {
     quaternion_fix qRawAccel, qWorldAccel;
 
@@ -50,6 +50,26 @@ void linearAcceleration(quaternion_fix *orientation, int16_t *rawAccel,
     linearAccel[0] = qWorldAccel.q1;
     linearAccel[1] = qWorldAccel.q2;
     linearAccel[2] = qWorldAccel.q3 - 16383;
+}
+
+void linearAccelerationXYProjection(quaternion_fix * q, int16_t * linearAccel,
+    int16_t *xyprojection) {
+    q16 q0q0 = q16_mul(q->q0, q->q0),
+        q1q1 = q16_mul(q->q1, q->q1),
+        q2q2 = q16_mul(q->q2, q->q2),
+        q3q3 = q16_mul(q->q3, q->q3),
+        q1q2 = q16_mul(q->q1, q->q2),
+        q0q3 = q16_mul(q->q0, q->q3);
+
+    q16 sensorX_x = q0q0 + q1q1 - q2q2 - q3q3;
+    q16 sensorX_y = 2 * (q1q2 + q0q3);
+    q16 sensorY_x = 2 * (q1q2 - q0q3);
+    q16 sensorY_y = q0q0 - q1q1 + q2q2 - q3q3;
+
+    xyprojection[0] = q16_mul(sensorX_x, linearAccel[0]) +
+        q16_mul(sensorX_y, linearAccel[1]);
+    xyprojection[1] = q16_mul(sensorY_x, linearAccel[0]) +
+        q16_mul(sensorY_y, linearAccel[1]);
 }
 
 q16 sinRoll(quaternion_fix * const quat) {
