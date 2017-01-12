@@ -20,10 +20,15 @@ const int MPU_RATE = 0;
 const mode MYMODE = LOG_NONE;
 const int N_SAMPLES = 1000;
 const int QUAT_DELAY = 50;
+
+// Gyro calibration variables
 const int N_GYRO_SAMPLES = 10000;
 const int GYRO_OFFSETS[] = { 11, -7, 13 };
 long int gyroOffsetAccum[] = { 0, 0, 0 };
 int nGyroSamples = 0;
+
+// Gyro coefficient for speed estimation
+const q16 GYRO_COEFF = 0;
 
 pidsettings anglePidSettings;
 pidsettings motorPidSettings;
@@ -31,6 +36,8 @@ pidstate anglePidState;
 pidstate motorPidState;
 
 q16 targetAngle = (q16)(0.2 * Q16_ONE);
+q16 motorSpeed = 0;
+q16 travelSpeed = 0;
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -65,12 +72,12 @@ void initPID() {
         &motorPidState);
     // Angle PID
     pid_initialize(
-        0,  // Kp
-        0,  // Ki
+        Q16_ONE / 2,  // Kp
+        Q16_ONE / 1000,  // Ki
         0,  // Kd
         Q16_ONE / 1000,  // dt
-        -PWMRANGE,  // out_min
-         PWMRANGE,  // out_max
+        -Q16_ONE / 6,  // out_min
+        Q16_ONE / 6,  // out_max
         &anglePidSettings,
         &anglePidState);
 }
@@ -172,11 +179,20 @@ void loop() {
     q16 sroll = sinRoll(&quat);
     q16 spitch = sinPitch(&quat);
 
-    // Perform PID update
-    q16 motorSpeed = pid_compute(spitch, targetAngle,
-        &motorPidSettings, &motorPidState);
-    Serial.printf("%d, %d\n", sroll, motorSpeed);
-    setMotors(motorSpeed, motorSpeed);
+    if (spitch < Q16_ONE / 2 && spitch > -Q16_ONE / 2) {
+        // Estimate travel speed
+        const q16 LOWPASS_PARAM = Q16_ONE / 100;
+        q16 speedEstimate = motorSpeed - q16_mul(GYRO_COEFF, gy);
+        travelSpeed = q16_mul(Q16_ONE - LOWPASS_PARAM, travelSpeed) +
+            q16_mul(LOWPASS_PARAM, speedEstimate);
+        // Perform PID update
+        targetAngle = pid_compute(travelSpeed, 0, &anglePidSettings, &anglePidState);
+        motorSpeed = pid_compute(spitch, targetAngle,
+            &motorPidSettings, &motorPidState);
+        setMotors(motorSpeed, motorSpeed);
+    } else {
+        setMotors(0, 0);
+    }
 
     if (MYMODE == LOG_RAW) {
         Serial.print(ax); Serial.print(",");
