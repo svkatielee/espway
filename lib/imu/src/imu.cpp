@@ -1,39 +1,41 @@
 
 #include "imu.h"
 
-quaternion_fix quatConjugate(quaternion_fix *q) {
-    return { q->q0, -q->q1, -q->q2, -q->q3 };
+void quatConjugate(quaternion_fix *q, quaternion_fix *result) {
+    result->q0 = q->q0;
+    result->q1 = -q->q1;
+    result->q2 = -q->q2;
+    result->q3 = -q->q3;
 }
 
-quaternion_fix quatProduct(quaternion_fix *q1, quaternion_fix *q2) {
-    quaternion_fix q;
-    q.q0 =
+void quatProduct(quaternion_fix *q1, quaternion_fix *q2, quaternion_fix *result) {
+    result->q0 =
         q16_mul(q1->q0, q2->q0) -
         q16_mul(q1->q1, q2->q1) -
         q16_mul(q1->q2, q2->q2) -
         q16_mul(q1->q3, q2->q3);
-    q.q1 =
+    result->q1 =
         q16_mul(q1->q0, q2->q1) +
         q16_mul(q1->q1, q2->q0) +
         q16_mul(q1->q2, q2->q3) -
         q16_mul(q1->q3, q2->q2);
-    q.q2 =
+    result->q2 =
         q16_mul(q1->q0, q2->q2) -
         q16_mul(q1->q1, q2->q3) +
         q16_mul(q1->q2, q2->q0) +
         q16_mul(q1->q3, q2->q1);
-    q.q3 =
+    result->q3 =
         q16_mul(q1->q0, q2->q3) +
         q16_mul(q1->q1, q2->q2) -
         q16_mul(q1->q2, q2->q1) +
         q16_mul(q1->q3, q2->q0);
-    return q;
 }
 
-quaternion_fix quatRotate(quaternion_fix *q, quaternion_fix *v) {
-    quaternion_fix qconj = quatConjugate(q);
-    quaternion_fix prod1 = quatProduct(v, &qconj);
-    return quatProduct(q, &prod1);
+void quatRotate(quaternion_fix *q, quaternion_fix *v, quaternion_fix *result) {
+    quaternion_fix qconj, tmp;
+    quatConjugate(q, &qconj);
+    quatProduct(v, &qconj, &tmp);
+    quatProduct(q, &tmp, result);
 }
 
 q16 sinRoll(quaternion_fix * const quat) {

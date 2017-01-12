@@ -14,9 +14,13 @@ typedef struct {
     q16 q0, q1, q2, q3;
 } quaternion_fix;
 
-quaternion_fix quatConjugate(quaternion_fix *q);
-quaternion_fix quatProduct(quaternion_fix *q1, quaternion_fix *q2);
-quaternion_fix quatRotate(quaternion_fix *q, quaternion_fix *v);
+void quatConjugate(quaternion_fix *q, quaternion_fix *result);
+void quatProduct(quaternion_fix *q1, quaternion_fix *q2, quaternion_fix *result);
+void quatRotate(quaternion_fix *q, quaternion_fix *v, quaternion_fix *result);
+
+void removeGravity(int16_t *acceleration);
+void accelerationToWorldFrame(quaternion_fix *orientation, int16_t *acceleration);
+
 
 q16 sinRoll(quaternion_fix * const quat);
 q16 sinPitch(quaternion_fix * const quat);
