@@ -172,7 +172,16 @@ void setup() {
     attachInterrupt(4, mpuInterrupt, RISING);
 
     // WiFi soft AP init
-    WiFi.softAP("ESPway");
+    // WiFi.softAP("ESPway", NULL, 1, 0, 1);  // Use this as soon as new Arduino framework is released
+    struct softap_config conf;
+    strcpy(reinterpret_cast<char*>(conf.ssid), "ESPway");
+    conf.channel = 1;
+    conf.ssid_len = strlen("ESPway");
+    conf.ssid_hidden = false;
+    conf.max_connection = 1;
+    conf.beacon_interval = 100;
+    wifi_softap_set_config_current(&conf);
+
     // ArduinoOTA init
     ArduinoOTA.begin();
 
