@@ -43,6 +43,7 @@ q16 targetAngle = STABLE_ANGLE;
 q16 motorSpeed = 0;
 q16 travelSpeed = 0;
 q16 targetSpeed = 0;
+q16 smoothedTargetSpeed = 0;
 unsigned long stageStarted = 0;
 const unsigned long ORIENTATION_STABILIZE_DURATION = 12000;
 
@@ -223,6 +224,10 @@ void loop() {
     // Exponential smoothing
     // https://en.wikipedia.org/wiki/Exponential_smoothing
     const q16 SMOOTHING_PARAM = Q16_ONE / 500;
+    const q16 TARGET_SMOOTHING_PARAM = Q16_ONE / 500;
+
+    smoothedTargetSpeed = q16_mul(Q16_ONE - TARGET_SMOOTHING_PARAM,
+        smoothedTargetSpeed) + q16_mul(TARGET_SMOOTHING_PARAM, targetSpeed);
 
     unsigned long curTime = millis();
     // TODO show state with eyes
@@ -247,7 +252,7 @@ void loop() {
             }
 
             // Perform PID update
-            targetAngle = pid_compute(travelSpeed, targetSpeed,
+            targetAngle = pid_compute(travelSpeed, smoothedTargetSpeed,
                 &anglePidSettings, &anglePidState);
             motorSpeed = -pid_compute(spitch, targetAngle,
                 &motorPidSettings, &motorPidState);
