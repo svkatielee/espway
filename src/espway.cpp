@@ -38,7 +38,8 @@ pidsettings motorPidSettings;
 pidstate anglePidState;
 pidstate motorPidState;
 
-q16 targetAngle = (q16)(0.2 * Q16_ONE);
+const q16 STABLE_ANGLE = (q16)(0.2 * Q16_ONE);
+q16 targetAngle = STABLE_ANGLE;
 q16 motorSpeed = 0;
 q16 travelSpeed = 0;
 unsigned long stageStarted = 0;
@@ -75,7 +76,7 @@ void initPID() {
     // Motor PID
     pid_initialize(
         Q16_ONE * 5,  // Kp
-        10 * Q16_ONE,  // Ki
+        Q16_ONE * 10,  // Ki
         Q16_ONE / 10,  // Kd
         Q16_ONE / 1000,  // dt
         -Q16_ONE,  // out_min
@@ -85,8 +86,8 @@ void initPID() {
     // Angle PID
     pid_initialize(
         Q16_ONE,  // Kp
-        0,  // Ki
-        0,  // Kd
+        Q16_ONE,  // Ki
+        Q16_ONE / 1000,  // Kd
         Q16_ONE / 1000,  // dt
         -Q16_ONE * 3/4,  // out_min
         Q16_ONE * 3/4,  // out_max
@@ -206,25 +207,36 @@ void loop() {
         if (curTime - stageStarted > ORIENTATION_STABILIZE_DURATION) {
             myState = RUNNING;
             stageStarted = curTime;
-            setBothEyes(GREEN);
         }
     } else if (myState == RUNNING || myState == FALLEN) {
+        q16 speedEstimate = motorSpeed;
+        // Estimate travel speed
+        travelSpeed = q16_mul(Q16_ONE - SMOOTHING_PARAM, travelSpeed) +
+            q16_mul(SMOOTHING_PARAM, speedEstimate);
+
         if (spitch < Q16_ONE*3/4 && spitch > -Q16_ONE*3/4) {
-            // Estimate travel speed
-            q16 speedEstimate = motorSpeed - q16_mul(GYRO_COEFF, gy);
-            travelSpeed = q16_mul(Q16_ONE - SMOOTHING_PARAM, travelSpeed) +
-                q16_mul(SMOOTHING_PARAM, speedEstimate);
-            // // Perform PID update
+            if (myState == FALLEN) {
+                myState = RUNNING;
+                setBothEyes(GREEN);
+                pid_reset(spitch, STABLE_ANGLE, 0, &motorPidSettings,
+                    &motorPidState);
+                pid_reset(0, 0, STABLE_ANGLE, &anglePidSettings, &anglePidState);
+            }
+
+            // Perform PID update
             targetAngle = pid_compute(travelSpeed, 0,
                 &anglePidSettings, &anglePidState);
-            Serial.println(targetAngle);
-            // targetAngle = 0.2 * Q16_ONE;
             motorSpeed = -pid_compute(spitch, targetAngle,
                 &motorPidSettings, &motorPidState);
-            setMotors(motorSpeed, motorSpeed);
         } else {
-            setMotors(0, 0);
+            if (myState == RUNNING) {
+                myState = FALLEN;
+                setBothEyes(RED);
+            }
+            motorSpeed = 0;
         }
+
+        setMotors(motorSpeed, motorSpeed);
 
         if (MYMODE == LOG_RAW) {
             Serial.print(ax); Serial.print(",");
