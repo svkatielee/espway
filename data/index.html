@@ -1,0 +1,49 @@
+
+<!doctype html>
+
+<html>
+    <head>
+        <meta charset='utf-8' />
+        <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no' />
+
+        <title>ESPway</title>
+
+        <style>
+            button {
+                font-size: 64px;
+                width: 600px;
+                display: block;
+                margin: 20px auto;
+            }
+        </style>
+    </head>
+
+    <body>
+        <button id='btnForward'>▲</button>
+        <button id='btnStop'>■</button>
+        <button id='btnBackward'>▼</button>
+
+        <script>
+            (function() {
+                'use strict'
+
+                let byId = id => document.getElementById(id)
+                let ws = new WebSocket('ws://192.168.4.1/ws')
+                ws.binaryType = 'arraybuffer'
+                let sendBytes = bytes => ws.send((new Uint8Array(bytes)).buffer)
+
+                byId('btnForward').addEventListener('click', () => {
+                    sendBytes([2]);
+                })
+
+                byId('btnBackward').addEventListener('click', () => {
+                    sendBytes([3]);
+                })
+
+                byId('btnStop').addEventListener('click', () => {
+                    sendBytes([1]);
+                })
+            })()
+        </script>
+    </body>
+</html>

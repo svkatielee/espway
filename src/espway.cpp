@@ -42,6 +42,7 @@ const q16 STABLE_ANGLE = (q16)(0.2 * Q16_ONE);
 q16 targetAngle = STABLE_ANGLE;
 q16 motorSpeed = 0;
 q16 travelSpeed = 0;
+q16 targetSpeed = 0;
 unsigned long stageStarted = 0;
 const unsigned long ORIENTATION_STABILIZE_DURATION = 12000;
 
@@ -104,10 +105,22 @@ void setMotors(q16 leftSpeed, q16 rightSpeed) {
 
 void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
     AwsEventType type, void * arg, uint8_t *data, size_t len) {
-    // Received data frame from websocket, mark that we should send back the quaternion
+    /*// Received data frame from websocket, mark that we should send back the quaternion
 
     sendQuat = true;
-    wsclient = client;
+    wsclient = client;*/
+
+    // Parse steering command
+    if (len >= 1) {
+        uint8_t command = data[0];
+        if (command == 1) {
+            targetSpeed = 0;
+        } else if (command == 2) {
+            targetSpeed = Q16_ONE / 7;
+        } else if (command == 3) {
+            targetSpeed = -Q16_ONE / 5;
+        }
+    }
 }
 
 
@@ -133,6 +146,7 @@ void setup() {
     pinMode(13, OUTPUT);
     pinMode(14, OUTPUT);
     pinMode(15, OUTPUT);
+    analogWriteFreq(2000);
 
     // NeoPixel eyes initialization
     eyes.Begin();
@@ -224,7 +238,7 @@ void loop() {
             }
 
             // Perform PID update
-            targetAngle = pid_compute(travelSpeed, 0,
+            targetAngle = pid_compute(travelSpeed, targetSpeed,
                 &anglePidSettings, &anglePidState);
             motorSpeed = -pid_compute(spitch, targetAngle,
                 &motorPidSettings, &motorPidState);
