@@ -30,8 +30,8 @@ const int GYRO_OFFSETS[] = { 11, -7, 13 };
 long int gyroOffsetAccum[] = { 0, 0, 0 };
 int nGyroSamples = 0;
 
-// Gyro coefficient for speed estimation
-const q16 GYRO_COEFF = 0;
+const q16 SMOOTHING_PARAM = Q16_ONE / 500;
+const q16 TARGET_SMOOTHING_PARAM = Q16_ONE / 500;
 
 pidsettings anglePidSettings;
 pidsettings motorPidSettings;
@@ -221,11 +221,9 @@ void loop() {
     // Retrieve sines of roll and pitch angles
     q16 sroll = sinRoll(&quat);
     q16 spitch = sinPitch(&quat);
-    // Exponential smoothing
-    // https://en.wikipedia.org/wiki/Exponential_smoothing
-    const q16 SMOOTHING_PARAM = Q16_ONE / 500;
-    const q16 TARGET_SMOOTHING_PARAM = Q16_ONE / 500;
 
+    // Exponential smoothing of target speed
+    // https://en.wikipedia.org/wiki/Exponential_smoothing
     smoothedTargetSpeed = q16_mul(Q16_ONE - TARGET_SMOOTHING_PARAM,
         smoothedTargetSpeed) + q16_mul(TARGET_SMOOTHING_PARAM, targetSpeed);
 
@@ -238,7 +236,7 @@ void loop() {
         }
     } else if (myState == RUNNING || myState == FALLEN) {
         q16 speedEstimate = motorSpeed;
-        // Estimate travel speed
+        // Estimate travel speed by exponential smoothing
         travelSpeed = q16_mul(Q16_ONE - SMOOTHING_PARAM, travelSpeed) +
             q16_mul(SMOOTHING_PARAM, speedEstimate);
 
