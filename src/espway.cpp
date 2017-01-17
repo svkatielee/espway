@@ -14,7 +14,7 @@
 
 
 enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY, LOG_PITCH_ROLL, LOG_NONE, GYRO_CALIB };
-enum state { CALIBRATING, RUNNING };
+enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN };
 
 const float BETA = 0.1f;
 const int MPU_RATE = 0;
@@ -22,7 +22,7 @@ const mode MYMODE = LOG_NONE;
 const int N_SAMPLES = 1000;
 const int QUAT_DELAY = 50;
 
-state myState = CALIBRATING;
+state myState = STABILIZING_ORIENTATION;
 
 // Gyro calibration variables
 const int N_GYRO_SAMPLES = 10000;
@@ -41,7 +41,8 @@ pidstate motorPidState;
 q16 targetAngle = (q16)(0.2 * Q16_ONE);
 q16 motorSpeed = 0;
 q16 travelSpeed = 0;
-int32_t smoothed_accx = 0;
+unsigned long stageStarted = 0;
+const unsigned long ORIENTATION_STABILIZE_DURATION = 12000;
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -58,17 +59,24 @@ unsigned long lastTime = 0;
 int sampleCounter = 0;
 
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> eyes(2);
-RgbColor black(0);
-RgbColor red(180, 0, 0);
-RgbColor yellow(180, 180, 0);
+RgbColor RED(180, 0, 0);
+RgbColor YELLOW(180, 180, 0);
+RgbColor GREEN(0, 180, 0);
+
+
+void setBothEyes(RgbColor &color) {
+    eyes.SetPixelColor(0, color);
+    eyes.SetPixelColor(1, color);
+    eyes.Show();
+}
 
 
 void initPID() {
     // Motor PID
     pid_initialize(
-        -Q16_ONE * 4,  // Kp
-        0,  // Ki
-        -Q16_ONE / 10,  // Kd
+        Q16_ONE * 5,  // Kp
+        10 * Q16_ONE,  // Ki
+        Q16_ONE / 10,  // Kd
         Q16_ONE / 1000,  // dt
         -Q16_ONE,  // out_min
         Q16_ONE,  // out_max
@@ -76,12 +84,12 @@ void initPID() {
         &motorPidState);
     // Angle PID
     pid_initialize(
-        Q16_ONE / 2,  // Kp
-        Q16_ONE / 1000,  // Ki
+        Q16_ONE,  // Kp
+        0,  // Ki
         0,  // Kd
         Q16_ONE / 1000,  // dt
-        -Q16_ONE / 6,  // out_min
-        Q16_ONE / 6,  // out_max
+        -Q16_ONE * 3/4,  // out_min
+        Q16_ONE * 3/4,  // out_max
         &anglePidSettings,
         &anglePidState);
 }
@@ -127,9 +135,7 @@ void setup() {
 
     // NeoPixel eyes initialization
     eyes.Begin();
-    eyes.SetPixelColor(0, red);
-    eyes.SetPixelColor(1, yellow);
-    eyes.Show();
+    setBothEyes(YELLOW);
 
     // I2C initialization
     Wire.begin(0, 5);
@@ -165,6 +171,9 @@ void setup() {
         req->send(404);
     });
     server.begin();
+
+    myState = STABILIZING_ORIENTATION;
+    stageStarted = millis();
 }
 
 
@@ -181,78 +190,86 @@ void loop() {
     int16_t rawGyro[3];
     mpu.getMotion6(&rawAccel[0], &rawAccel[1], &rawAccel[2],
         &rawGyro[0], &rawGyro[1], &rawGyro[2]);
+    // Update orientation estimate
     MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor, rawAccel, rawGyro,
         &quat);
+    // Retrieve sines of roll and pitch angles
     q16 sroll = sinRoll(&quat);
     q16 spitch = sinPitch(&quat);
-    int16_t linearAccel[3];
-    int16_t xyproj[2];
-    linearAcceleration(&quat, rawAccel, linearAccel);
-    linearAccelerationXYProjection(&quat, linearAccel, xyproj);
-    const q16 LOWPASS_PARAM = Q16_ONE / 200;
-    smoothed_accx = q16_mul(Q16_ONE - LOWPASS_PARAM, smoothed_accx) +
-        q16_mul(LOWPASS_PARAM, xyproj[0]);
-    Serial.printf("%d\n", smoothed_accx);
+    // Exponential smoothing
+    // https://en.wikipedia.org/wiki/Exponential_smoothing
+    const q16 SMOOTHING_PARAM = Q16_ONE / 500;
 
+    unsigned long curTime = millis();
+    // TODO show state with eyes
+    if (myState == STABILIZING_ORIENTATION) {
+        if (curTime - stageStarted > ORIENTATION_STABILIZE_DURATION) {
+            myState = RUNNING;
+            stageStarted = curTime;
+            setBothEyes(GREEN);
+        }
+    } else if (myState == RUNNING || myState == FALLEN) {
+        if (spitch < Q16_ONE*3/4 && spitch > -Q16_ONE*3/4) {
+            // Estimate travel speed
+            q16 speedEstimate = motorSpeed - q16_mul(GYRO_COEFF, gy);
+            travelSpeed = q16_mul(Q16_ONE - SMOOTHING_PARAM, travelSpeed) +
+                q16_mul(SMOOTHING_PARAM, speedEstimate);
+            // // Perform PID update
+            targetAngle = pid_compute(travelSpeed, 0,
+                &anglePidSettings, &anglePidState);
+            Serial.println(targetAngle);
+            // targetAngle = 0.2 * Q16_ONE;
+            motorSpeed = -pid_compute(spitch, targetAngle,
+                &motorPidSettings, &motorPidState);
+            setMotors(motorSpeed, motorSpeed);
+        } else {
+            setMotors(0, 0);
+        }
 
-    if (spitch < Q16_ONE / 2 && spitch > -Q16_ONE / 2) {
-        // Estimate travel speed
-        // q16 speedEstimate = motorSpeed - q16_mul(GYRO_COEFF, gy);
-        // travelSpeed = q16_mul(Q16_ONE - LOWPASS_PARAM, travelSpeed) +
-        //     q16_mul(LOWPASS_PARAM, speedEstimate);
-        // // Perform PID update
-        // targetAngle = pid_compute(travelSpeed, 0, &anglePidSettings, &anglePidState);
-        targetAngle = 0.2 * Q16_ONE;
-        motorSpeed = pid_compute(spitch, targetAngle,
-            &motorPidSettings, &motorPidState);
-        // setMotors(motorSpeed, motorSpeed);
-    } else {
-        setMotors(0, 0);
-    }
+        if (MYMODE == LOG_RAW) {
+            Serial.print(ax); Serial.print(",");
+            Serial.print(ay); Serial.print(",");
+            Serial.print(az); Serial.print(",");
+            Serial.print(gx); Serial.print(",");
+            Serial.print(gy); Serial.print(",");
+            Serial.println(gz);
+        } else if (MYMODE == LOG_GRAVXY) {
+        	q16 half_gravx = q16_mul(quat.q1, quat.q3) - q16_mul(quat.q0, quat.q2);
+        	q16 half_gravy = q16_mul(quat.q0, quat.q1) + q16_mul(quat.q2, quat.q3);
+            Serial.printf("%d, %d\n", half_gravx, half_gravy);
+        } else if (MYMODE == LOG_FREQ) {
+            unsigned long ms = millis();
+            if (++sampleCounter == N_SAMPLES) {
+                Serial.println(N_SAMPLES * 1000 / (ms - lastTime));
+                sampleCounter = 0;
+                lastTime = ms;
+            }
+        } else if (MYMODE == GYRO_CALIB && nGyroSamples != N_GYRO_SAMPLES) {
+            gyroOffsetAccum[0] += gx;
+            gyroOffsetAccum[1] += gy;
+            gyroOffsetAccum[2] += gz;
+            nGyroSamples += 1;
 
-    if (MYMODE == LOG_RAW) {
-        Serial.print(ax); Serial.print(",");
-        Serial.print(ay); Serial.print(",");
-        Serial.print(az); Serial.print(",");
-        Serial.print(gx); Serial.print(",");
-        Serial.print(gy); Serial.print(",");
-        Serial.println(gz);
-    } else if (MYMODE == LOG_GRAVXY) {
-    	q16 half_gravx = q16_mul(quat.q1, quat.q3) - q16_mul(quat.q0, quat.q2);
-    	q16 half_gravy = q16_mul(quat.q0, quat.q1) + q16_mul(quat.q2, quat.q3);
-        Serial.printf("%d, %d\n", half_gravx, half_gravy);
-    } else if (MYMODE == LOG_FREQ) {
+            if (nGyroSamples == N_GYRO_SAMPLES) {
+                Serial.println("Gyro offsets:");
+                Serial.print("X: "); Serial.println(gyroOffsetAccum[0] / N_GYRO_SAMPLES);
+                Serial.print("Y: "); Serial.println(gyroOffsetAccum[1] / N_GYRO_SAMPLES);
+                Serial.print("Z: "); Serial.println(gyroOffsetAccum[2] / N_GYRO_SAMPLES);
+            }
+        } else if (MYMODE == LOG_PITCH_ROLL) {
+            Serial.printf("%d,%d\n", spitch, sroll);
+        }
+
         unsigned long ms = millis();
-        if (++sampleCounter == N_SAMPLES) {
-            Serial.println(N_SAMPLES * 1000 / (ms - lastTime));
-            sampleCounter = 0;
-            lastTime = ms;
+        if (sendQuat && ms - lastSentQuat > QUAT_DELAY) {
+            int16_t qdata[4];
+            qdata[0] = quat.q0 / 2;
+            qdata[1] = quat.q1 / 2;
+            qdata[2] = quat.q2 / 2;
+            qdata[3] = quat.q3 / 2;
+            wsclient->binary((uint8_t *)qdata, 8);
+            sendQuat = false;
+            lastSentQuat = ms;
         }
-    } else if (MYMODE == GYRO_CALIB && nGyroSamples != N_GYRO_SAMPLES) {
-        gyroOffsetAccum[0] += gx;
-        gyroOffsetAccum[1] += gy;
-        gyroOffsetAccum[2] += gz;
-        nGyroSamples += 1;
-
-        if (nGyroSamples == N_GYRO_SAMPLES) {
-            Serial.println("Gyro offsets:");
-            Serial.print("X: "); Serial.println(gyroOffsetAccum[0] / N_GYRO_SAMPLES);
-            Serial.print("Y: "); Serial.println(gyroOffsetAccum[1] / N_GYRO_SAMPLES);
-            Serial.print("Z: "); Serial.println(gyroOffsetAccum[2] / N_GYRO_SAMPLES);
-        }
-    } else if (MYMODE == LOG_PITCH_ROLL) {
-        Serial.printf("%d,%d\n", spitch, sroll);
-    }
-
-    unsigned long ms = millis();
-    if (sendQuat && ms - lastSentQuat > QUAT_DELAY) {
-        int16_t qdata[4];
-        qdata[0] = quat.q0 / 2;
-        qdata[1] = quat.q1 / 2;
-        qdata[2] = quat.q2 / 2;
-        qdata[3] = quat.q3 / 2;
-        wsclient->binary((uint8_t *)qdata, 8);
-        sendQuat = false;
-        lastSentQuat = ms;
     }
 }
