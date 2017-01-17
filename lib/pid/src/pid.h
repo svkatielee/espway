@@ -16,7 +16,7 @@ typedef struct {
 
 typedef struct {
     q16 i_term;
-    q16 last_error;
+    q16 last_input;
 } pidstate;
 
 void pid_initialize(q16 Kp, q16 Ki, q16 Kd, q16 dt, q16 out_min,
