@@ -44,6 +44,7 @@ q16 motorSpeed = 0;
 q16 travelSpeed = 0;
 q16 targetSpeed = 0;
 q16 smoothedTargetSpeed = 0;
+q16 steeringBias = 0;
 unsigned long stageStarted = 0;
 const unsigned long ORIENTATION_STABILIZE_DURATION = 12000;
 
@@ -99,8 +100,8 @@ void initPID() {
 
 
 void setMotors(q16 leftSpeed, q16 rightSpeed) {
-    setMotorSpeed(14, 12, rightSpeed);
-    setMotorSpeed(13, 15, leftSpeed);
+    setMotorSpeed(14, 12, rightSpeed - steeringBias);
+    setMotorSpeed(13, 15, leftSpeed + steeringBias);
 }
 
 
@@ -111,16 +112,11 @@ void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
     sendQuat = true;
     wsclient = client;*/
 
+    int8_t *signed_data = (int8_t *)data;
     // Parse steering command
-    if (len >= 1) {
-        uint8_t command = data[0];
-        if (command == 1) {
-            targetSpeed = 0;
-        } else if (command == 2) {
-            targetSpeed = Q16_ONE / 7;
-        } else if (command == 3) {
-            targetSpeed = -Q16_ONE / 5;
-        }
+    if (len >= 2) {
+        steeringBias = (Q16_ONE / 8 * signed_data[0]) / 128;
+        targetSpeed = (Q16_ONE / 3 * signed_data[1]) / 128;
     }
 }
 
