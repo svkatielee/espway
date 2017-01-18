@@ -1,0 +1,90 @@
+<!doctype html>
+
+<html>
+    <head>
+        <meta charset='utf-8' />
+        <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no' />
+
+        <title>ESPway</title>
+
+        <style>
+            body, html {
+                margin: 0;
+                padding: 0;
+            }
+
+            #joystick {
+                background-color: black;
+                width: 300px;
+                height: 300px;
+                display: block;
+                margin: 50px auto;
+            }
+        </style>
+    </head>
+
+    <body>
+        <canvas id='joystick'></canvas>
+
+        <script>
+            (function() {
+                'use strict'
+
+                window.addEventListener('load', () => {
+
+                let byId = id => document.getElementById(id)
+                // let ws = new WebSocket('ws://192.168.4.1/ws')
+                // ws.binaryType = 'arraybuffer'
+                // let sendBytes = bytes => ws.send((new Uint8Array(bytes)).buffer)
+
+                let myCanvas = byId('joystick')
+                let canvasWidth = myCanvas.offsetWidth,
+                    canvasHeight = myCanvas.offsetHeight
+                myCanvas.width = canvasWidth
+                myCanvas.height = canvasHeight
+
+                let hasCurrentTouch = false
+                let currentTouchId = null
+                let x = 0, y = 0
+
+                myCanvas.addEventListener('touchstart', e => {
+                    if (!hasCurrentTouch) {
+                        currentTouchId = e.changedTouches[0].identifier
+                        hasCurrentTouch = true
+                    }
+                })
+
+                myCanvas.addEventListener('touchend', e => {
+                    if (hasCurrentTouch &&
+                        e.changedTouches.item(currentTouchId) !== null) {
+                        hasCurrentTouch = false
+                        x = 0
+                        y = 0
+                    }
+                })
+
+                myCanvas.addEventListener('touchmove', e => {
+                    let item = e.changedTouches.item(currentTouchId)
+                    if (hasCurrentTouch && item !== null) {
+                        x = item.pageX - myCanvas.offsetLeft - canvasWidth/2
+                        y = (canvasHeight/2 - (item.pageY - myCanvas.offsetTop))
+                        x /= canvasWidth / 2
+                        y /= canvasHeight / 2
+
+                        if (Math.abs(x) > 1 || Math.abs(y) > 1) {
+                            x = 0
+                            y = 0
+                        }
+                    }
+                })
+
+                window.setInterval(() => {
+                    // send orientation
+                    console.log(x + ',' + y)
+                }, 100);
+                })
+            })()
+        </script>
+    </body>
+</html>
+
