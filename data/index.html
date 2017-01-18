@@ -67,10 +67,8 @@
                 })
 
                 window.addEventListener('touchstart', e => {
-                    if (!hasCurrentTouch) {
-                        currentTouchId = e.changedTouches[0].identifier
-                        hasCurrentTouch = true
-                    }
+                    currentTouchId = e.changedTouches[0].identifier
+                    hasCurrentTouch = true
                 })
 
                 window.addEventListener('touchend', e => {
