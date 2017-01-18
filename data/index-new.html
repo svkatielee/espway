@@ -43,31 +43,59 @@
                 myCanvas.width = canvasWidth
                 myCanvas.height = canvasHeight
 
+                let mouseIsDown = false
                 let hasCurrentTouch = false
                 let currentTouchId = null
-                let x = 0, y = 0
+                let pageX = 0, pageY = 0
 
-                myCanvas.addEventListener('touchstart', e => {
+                window.addEventListener('mousemove', e => {
+                    if (mouseIsDown) {
+                        pageX = e.clientX
+                        pageY = e.clientY
+                    }
+                })
+
+                window.addEventListener('mousedown', e => {
+                    mouseIsDown = true
+                })
+
+                window.addEventListener('mouseup', e => {
+                    mouseIsDown = false
+                    pageX = 0
+                    pageY = 0
+                })
+
+                window.addEventListener('touchstart', e => {
                     if (!hasCurrentTouch) {
                         currentTouchId = e.changedTouches[0].identifier
                         hasCurrentTouch = true
                     }
                 })
 
-                myCanvas.addEventListener('touchend', e => {
+                window.addEventListener('touchend', e => {
                     if (hasCurrentTouch &&
                         e.changedTouches.item(currentTouchId) !== null) {
                         hasCurrentTouch = false
-                        x = 0
-                        y = 0
+                        pageX = 0
+                        pageY = 0
                     }
                 })
 
-                myCanvas.addEventListener('touchmove', e => {
+                window.addEventListener('touchmove', e => {
                     let item = e.changedTouches.item(currentTouchId)
                     if (hasCurrentTouch && item !== null) {
-                        x = item.pageX - myCanvas.offsetLeft - canvasWidth/2
-                        y = (canvasHeight/2 - (item.pageY - myCanvas.offsetTop))
+                        pageX = item.pageX
+                        pageY = item.pageY
+                    }
+                })
+
+
+                window.setInterval(() => {
+                    // send orientation
+                    let x = 0, y = 0
+                    if (hasCurrentTouch || mouseIsDown) {
+                        x = pageX - myCanvas.offsetLeft - canvasWidth/2
+                        y = (canvasHeight/2 - (pageY - myCanvas.offsetTop))
                         x /= canvasWidth / 2
                         y /= canvasHeight / 2
 
@@ -76,10 +104,7 @@
                             y = 0
                         }
                     }
-                })
 
-                window.setInterval(() => {
-                    // send orientation
                     console.log(x + ',' + y)
                 }, 100);
                 })
