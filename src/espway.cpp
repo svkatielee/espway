@@ -302,7 +302,6 @@ void loop() {
     } else if (myState == FALLEN) {
         if (spitch < Q16_ONE/2 && spitch > -Q16_ONE/2) {
             myState = RUNNING;
-            myState = RUNNING;
             setBothEyes(GREEN);
             pid_reset(spitch, STABLE_ANGLE, 0, &motorPidSettings,
                 &motorPidState);
