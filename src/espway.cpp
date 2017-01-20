@@ -236,6 +236,17 @@ void doLog(q16 spitch, q16 sroll) {
 }
 
 
+void sendQuaternion() {
+    int16_t qdata[4];
+    qdata[0] = quat.q0 / 2;
+    qdata[1] = quat.q1 / 2;
+    qdata[2] = quat.q2 / 2;
+    qdata[3] = quat.q3 / 2;
+    wsclient->binary((uint8_t *)qdata, 8);
+    sendQuat = false;
+}
+
+
 void loop() {
     if (!intFlag) {
         ArduinoOTA.handle();
@@ -302,13 +313,7 @@ void loop() {
     doLog(spitch, sroll);
 
     if (sendQuat && curTime - lastSentQuat > QUAT_DELAY) {
-        int16_t qdata[4];
-        qdata[0] = quat.q0 / 2;
-        qdata[1] = quat.q1 / 2;
-        qdata[2] = quat.q2 / 2;
-        qdata[3] = quat.q3 / 2;
-        wsclient->binary((uint8_t *)qdata, 8);
-        sendQuat = false;
+        sendQuaternion();
         lastSentQuat = curTime;
     }
 }
