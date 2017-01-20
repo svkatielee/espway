@@ -100,8 +100,9 @@ void initPID() {
 
 
 void setMotors(q16 leftSpeed, q16 rightSpeed) {
-    setMotorSpeed(14, 12, rightSpeed - steeringBias);
-    setMotorSpeed(13, 15, leftSpeed + steeringBias);
+    setMotorSpeed(1, 12, rightSpeed - steeringBias);
+    setMotorSpeed(0, 15, leftSpeed + steeringBias);
+    motorCommit();
 }
 
 
@@ -143,7 +144,7 @@ void setup() {
     pinMode(13, OUTPUT);
     pinMode(14, OUTPUT);
     pinMode(15, OUTPUT);
-    analogWriteFreq(2000);
+    motorInit();
 
     // NeoPixel eyes initialization
     eyes.Begin();
