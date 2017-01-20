@@ -249,6 +249,7 @@ void sendQuaternion() {
 
 void loop() {
     if (!intFlag) {
+        // TODO stop motors on OTA
         ArduinoOTA.handle();
         return;
     }
@@ -276,7 +277,6 @@ void loop() {
     travelSpeed = q16_mul(Q16_ONE - SMOOTHING_PARAM, travelSpeed) +
         q16_mul(SMOOTHING_PARAM, motorSpeed);
 
-
     unsigned long curTime = millis();
     // TODO show state with eyes
     if (myState == STABILIZING_ORIENTATION) {
@@ -298,7 +298,6 @@ void loop() {
         }
 
         setMotors(motorSpeed, motorSpeed);
-
     } else if (myState == FALLEN) {
         if (spitch < Q16_ONE/2 && spitch > -Q16_ONE/2) {
             myState = RUNNING;
