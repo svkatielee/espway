@@ -199,6 +199,43 @@ void setup() {
 }
 
 
+void doLog(q16 spitch, q16 sroll) {
+    if (MYMODE == LOG_RAW) {
+        Serial.print(ax); Serial.print(",");
+        Serial.print(ay); Serial.print(",");
+        Serial.print(az); Serial.print(",");
+        Serial.print(gx); Serial.print(",");
+        Serial.print(gy); Serial.print(",");
+        Serial.println(gz);
+    } else if (MYMODE == LOG_GRAVXY) {
+        q16 half_gravx = q16_mul(quat.q1, quat.q3) - q16_mul(quat.q0, quat.q2);
+        q16 half_gravy = q16_mul(quat.q0, quat.q1) + q16_mul(quat.q2, quat.q3);
+        Serial.printf("%d, %d\n", half_gravx, half_gravy);
+    } else if (MYMODE == LOG_FREQ) {
+        unsigned long ms = millis();
+        if (++sampleCounter == N_SAMPLES) {
+            Serial.println(N_SAMPLES * 1000 / (ms - lastTime));
+            sampleCounter = 0;
+            lastTime = ms;
+        }
+    } else if (MYMODE == GYRO_CALIB && nGyroSamples != N_GYRO_SAMPLES) {
+        gyroOffsetAccum[0] += gx;
+        gyroOffsetAccum[1] += gy;
+        gyroOffsetAccum[2] += gz;
+        nGyroSamples += 1;
+
+        if (nGyroSamples == N_GYRO_SAMPLES) {
+            Serial.println("Gyro offsets:");
+            Serial.print("X: "); Serial.println(gyroOffsetAccum[0] / N_GYRO_SAMPLES);
+            Serial.print("Y: "); Serial.println(gyroOffsetAccum[1] / N_GYRO_SAMPLES);
+            Serial.print("Z: "); Serial.println(gyroOffsetAccum[2] / N_GYRO_SAMPLES);
+        }
+    } else if (MYMODE == LOG_PITCH_ROLL) {
+        Serial.printf("%d,%d\n", spitch, sroll);
+    }
+}
+
+
 void loop() {
     if (!intFlag) {
         ArduinoOTA.handle();
@@ -224,6 +261,11 @@ void loop() {
     smoothedTargetSpeed = q16_mul(Q16_ONE - TARGET_SMOOTHING_PARAM,
         smoothedTargetSpeed) + q16_mul(TARGET_SMOOTHING_PARAM, targetSpeed);
 
+    // Estimate travel speed by exponential smoothing
+    travelSpeed = q16_mul(Q16_ONE - SMOOTHING_PARAM, travelSpeed) +
+        q16_mul(SMOOTHING_PARAM, motorSpeed);
+
+
     unsigned long curTime = millis();
     // TODO show state with eyes
     if (myState == STABILIZING_ORIENTATION) {
@@ -231,80 +273,43 @@ void loop() {
             myState = RUNNING;
             stageStarted = curTime;
         }
-    } else if (myState == RUNNING || myState == FALLEN) {
-        q16 speedEstimate = motorSpeed;
-        // Estimate travel speed by exponential smoothing
-        travelSpeed = q16_mul(Q16_ONE - SMOOTHING_PARAM, travelSpeed) +
-            q16_mul(SMOOTHING_PARAM, speedEstimate);
-
+    } else if (myState == RUNNING) {
         if (spitch < Q16_ONE*3/4 && spitch > -Q16_ONE*3/4) {
-            if (myState == FALLEN) {
-                myState = RUNNING;
-                setBothEyes(GREEN);
-                pid_reset(spitch, STABLE_ANGLE, 0, &motorPidSettings,
-                    &motorPidState);
-                pid_reset(0, 0, STABLE_ANGLE, &anglePidSettings, &anglePidState);
-            }
-
             // Perform PID update
             targetAngle = pid_compute(travelSpeed, smoothedTargetSpeed,
                 &anglePidSettings, &anglePidState);
             motorSpeed = -pid_compute(spitch, targetAngle,
                 &motorPidSettings, &motorPidState);
         } else {
-            if (myState == RUNNING) {
-                myState = FALLEN;
-                setBothEyes(RED);
-            }
+            myState = FALLEN;
+            setBothEyes(RED);
             motorSpeed = 0;
         }
 
         setMotors(motorSpeed, motorSpeed);
 
-        if (MYMODE == LOG_RAW) {
-            Serial.print(ax); Serial.print(",");
-            Serial.print(ay); Serial.print(",");
-            Serial.print(az); Serial.print(",");
-            Serial.print(gx); Serial.print(",");
-            Serial.print(gy); Serial.print(",");
-            Serial.println(gz);
-        } else if (MYMODE == LOG_GRAVXY) {
-        	q16 half_gravx = q16_mul(quat.q1, quat.q3) - q16_mul(quat.q0, quat.q2);
-        	q16 half_gravy = q16_mul(quat.q0, quat.q1) + q16_mul(quat.q2, quat.q3);
-            Serial.printf("%d, %d\n", half_gravx, half_gravy);
-        } else if (MYMODE == LOG_FREQ) {
-            unsigned long ms = millis();
-            if (++sampleCounter == N_SAMPLES) {
-                Serial.println(N_SAMPLES * 1000 / (ms - lastTime));
-                sampleCounter = 0;
-                lastTime = ms;
-            }
-        } else if (MYMODE == GYRO_CALIB && nGyroSamples != N_GYRO_SAMPLES) {
-            gyroOffsetAccum[0] += gx;
-            gyroOffsetAccum[1] += gy;
-            gyroOffsetAccum[2] += gz;
-            nGyroSamples += 1;
-
-            if (nGyroSamples == N_GYRO_SAMPLES) {
-                Serial.println("Gyro offsets:");
-                Serial.print("X: "); Serial.println(gyroOffsetAccum[0] / N_GYRO_SAMPLES);
-                Serial.print("Y: "); Serial.println(gyroOffsetAccum[1] / N_GYRO_SAMPLES);
-                Serial.print("Z: "); Serial.println(gyroOffsetAccum[2] / N_GYRO_SAMPLES);
-            }
-        } else if (MYMODE == LOG_PITCH_ROLL) {
-            Serial.printf("%d,%d\n", spitch, sroll);
-        }
-
-        unsigned long ms = millis();
-        if (sendQuat && ms - lastSentQuat > QUAT_DELAY) {
-            int16_t qdata[4];
-            qdata[0] = quat.q0 / 2;
-            qdata[1] = quat.q1 / 2;
-            qdata[2] = quat.q2 / 2;
-            qdata[3] = quat.q3 / 2;
-            wsclient->binary((uint8_t *)qdata, 8);
-            sendQuat = false;
-            lastSentQuat = ms;
+    } else if (myState == FALLEN) {
+        if (spitch < Q16_ONE/2 && spitch > -Q16_ONE/2) {
+            myState = RUNNING;
+            myState = RUNNING;
+            setBothEyes(GREEN);
+            pid_reset(spitch, STABLE_ANGLE, 0, &motorPidSettings,
+                &motorPidState);
+            pid_reset(0, 0, STABLE_ANGLE, &anglePidSettings, &anglePidState);
         }
     }
+
+    doLog(spitch, sroll);
+
+    if (sendQuat && curTime - lastSentQuat > QUAT_DELAY) {
+        int16_t qdata[4];
+        qdata[0] = quat.q0 / 2;
+        qdata[1] = quat.q1 / 2;
+        qdata[2] = quat.q2 / 2;
+        qdata[3] = quat.q3 / 2;
+        wsclient->binary((uint8_t *)qdata, 8);
+        sendQuat = false;
+        lastSentQuat = curTime;
+    }
 }
+
