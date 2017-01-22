@@ -68,6 +68,7 @@ RgbColor RED(180, 0, 0);
 RgbColor YELLOW(180, 180, 0);
 RgbColor GREEN(0, 180, 0);
 RgbColor BLUE(0, 0, 180);
+RgbColor LILA(180, 180, 0);
 
 const unsigned long BATTERY_INTERVAL = 500;
 const unsigned int BATTERY_THRESHOLD = 700;
@@ -143,6 +144,7 @@ void calculateIMUCoeffs() {
 }
 
 
+bool otaStarted = false;
 volatile bool intFlag = false;
 void mpuInterrupt() {
     intFlag = true;
@@ -189,6 +191,12 @@ void setup() {
     WiFi.softAP("ESPway", NULL);
     // WiFi.softAP("ESPway", NULL, 1, 0, 1);  // Use this as soon as new Arduino framework is released
 
+    ArduinoOTA.onStart([]() {
+        otaStarted = true;
+        motorsEnabled = false;
+        setMotors(0, 0);
+        setBothEyes(LILA);
+    });
     // ArduinoOTA init
     ArduinoOTA.begin();
 
@@ -257,8 +265,7 @@ void sendQuaternion() {
 
 
 void loop() {
-    if (!intFlag) {
-        // TODO stop motors on OTA
+    if (!intFlag || otaStarted) {
         ArduinoOTA.handle();
         return;
     }
@@ -287,7 +294,6 @@ void loop() {
         q16_mul(SMOOTHING_PARAM, motorSpeed);
 
     unsigned long curTime = millis();
-    // TODO show state with eyes
     if (myState == STABILIZING_ORIENTATION) {
         if (curTime - stageStarted > ORIENTATION_STABILIZE_DURATION) {
             myState = RUNNING;
