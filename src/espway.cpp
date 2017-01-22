@@ -70,7 +70,7 @@ RgbColor GREEN(0, 180, 0);
 RgbColor BLUE(0, 0, 180);
 
 const unsigned long BATTERY_INTERVAL = 500;
-const unsigned int BATTERY_THRESHOLD = 750;
+const unsigned int BATTERY_THRESHOLD = 700;
 unsigned long lastBatteryCheck = 0;
 
 bool motorsEnabled = false;
