@@ -330,6 +330,8 @@ void loop() {
 
     setMotors(motorSpeed, motorSpeed);
 
+    yield();
+
     doLog(spitch, sroll);
 
     if (sendQuat && curTime - lastSentQuat > QUAT_DELAY) {
