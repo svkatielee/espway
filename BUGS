@@ -1,3 +1,2 @@
-* Random WDT resets
-* WebSocket disconnects
-
+* Random WDT resets. Most likely due to MPU6050 crashing
+* WebSocket disconnects. Check if still happens!
