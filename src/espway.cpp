@@ -67,18 +67,11 @@ NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> eyes(2);
 RgbColor RED(180, 0, 0);
 RgbColor YELLOW(180, 180, 0);
 RgbColor GREEN(0, 180, 0);
+RgbColor BLUE(0, 0, 180);
 
-Ticker batteryWatch;
-
-volatile bool gShouldMeasureBattery = false;
-void batteryTick() {
-    gShouldMeasureBattery = true;
-}
-
-
-void measureBattery() {
-    unsigned int val = analogRead(A0);
-}
+const unsigned long BATTERY_INTERVAL = 500;
+const unsigned int BATTERY_THRESHOLD = 750;
+unsigned long lastBatteryCheck = 0;
 
 
 void setBothEyes(RgbColor &color) {
@@ -302,7 +295,7 @@ void loop() {
                 &motorPidSettings, &motorPidState);
         } else {
             myState = FALLEN;
-            setBothEyes(RED);
+            setBothEyes(BLUE);
             motorSpeed = 0;
         }
 
@@ -324,8 +317,13 @@ void loop() {
         lastSentQuat = curTime;
     }
 
-    if (gShouldMeasureBattery) {
-        gShouldMeasureBattery = false;
-        measureBattery();
+    if (curTime - lastBatteryCheck > BATTERY_INTERVAL) {
+        lastBatteryCheck = curTime;
+
+        if (analogRead(A0) < BATTERY_THRESHOLD) {
+            myState = CUTOFF;
+            setMotors(0, 0);
+            setBothEyes(RED);
+        }
     }
 }
