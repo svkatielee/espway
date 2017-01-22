@@ -122,11 +122,6 @@ void setMotors(q16 leftSpeed, q16 rightSpeed) {
 
 void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
     AwsEventType type, void * arg, uint8_t *data, size_t len) {
-    /*// Received data frame from websocket, mark that we should send back the quaternion
-
-    sendQuat = true;
-    wsclient = client;*/
-
     int8_t *signed_data = (int8_t *)data;
     // Parse steering command
     if (len >= 2) {
@@ -311,7 +306,6 @@ void loop() {
             motorSpeed = 0;
             motorsEnabled = false;
         }
-
     } else if (myState == FALLEN) {
         if (spitch < Q16_ONE/2 && spitch > -Q16_ONE/2) {
             myState = RUNNING;
@@ -336,7 +330,6 @@ void loop() {
 
     if (curTime - lastBatteryCheck > BATTERY_INTERVAL) {
         lastBatteryCheck = curTime;
-
         if (analogRead(A0) < BATTERY_THRESHOLD) {
             myState = CUTOFF;
             setBothEyes(RED);
