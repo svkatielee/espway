@@ -11,19 +11,29 @@
             body, html {
                 margin: 0;
                 padding: 0;
+                background-color: white;
+                color: #334;
+                font-family: monospace;
             }
 
             #joystick {
-                background-color: black;
-                width: 300px;
-                height: 300px;
+                margin: 0 auto;
+                width: 310px;
+                height: 310px;
                 display: block;
-                margin: 50px auto;
+                border: 2px solid #334;
+                border-radius: 10px;
+                background: linear-gradient(#aad, white, #daa);
+            }
+
+            h1 {
+                text-align: center;
             }
         </style>
     </head>
 
     <body>
+        <h1>ESPway</h1>
         <canvas id='joystick'></canvas>
 
         <script>
@@ -43,11 +53,16 @@
                     canvasHeight = myCanvas.offsetHeight
                 myCanvas.width = canvasWidth
                 myCanvas.height = canvasHeight
+                let ctx = myCanvas.getContext('2d')
+                ctx.lineWidth = 10
+                ctx.strokeStyle = 'black'
+                ctx.fillStyle = 'red'
 
                 let mouseIsDown = false
                 let hasCurrentTouch = false
                 let currentTouchId = null
                 let pageX = 0, pageY = 0
+                let x = 0, y = 0
 
                 window.addEventListener('mousemove', e => {
                     if (mouseIsDown) {
@@ -58,16 +73,18 @@
 
                 window.addEventListener('mousedown', e => {
                     mouseIsDown = true
+                    pageX = e.clientX
+                    pageY = e.clientY
                 })
 
                 window.addEventListener('mouseup', e => {
                     mouseIsDown = false
-                    pageX = 0
-                    pageY = 0
                 })
 
                 window.addEventListener('touchstart', e => {
                     currentTouchId = e.changedTouches[0].identifier
+                    pageX = e.changedTouches[0].pageX
+                    pageY = e.changedTouches[0].pageY
                     hasCurrentTouch = true
                 })
 
@@ -75,8 +92,6 @@
                     if (hasCurrentTouch &&
                         e.changedTouches.item(currentTouchId) !== null) {
                         hasCurrentTouch = false
-                        pageX = 0
-                        pageY = 0
                     }
                 })
 
@@ -88,11 +103,11 @@
                     }
                 })
 
-
-                window.setInterval(() => {
-                    // send orientation
-                    let x = 0, y = 0
-                    if (hasCurrentTouch || mouseIsDown) {
+                function updateXY() {
+                    if (!hasCurrentTouch && !mouseIsDown) {
+                        x = 0
+                        y = 0
+                    } else {
                         x = pageX - myCanvas.offsetLeft - canvasWidth/2
                         y = (canvasHeight/2 - (pageY - myCanvas.offsetTop))
                         x /= canvasWidth / 2
@@ -103,9 +118,36 @@
                             y = 0
                         }
                     }
+                }
 
-                    sendInt8([x * 127, y * 127])
+                window.setInterval(() => {
+                    if (ws.readyState == 1) {
+                        sendInt8([x * 127, y * 127])
+                    }
                 }, 100);
+
+                function draw() {
+                    updateXY()
+
+                    let canvasX = (x + 1) / 2 * canvasWidth,
+                        canvasY = (-y + 1) / 2 * canvasHeight
+
+                    ctx.lineWidth = 10
+                    ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+                    ctx.beginPath()
+                    ctx.moveTo(canvasWidth / 2, canvasHeight / 2)
+                    ctx.lineTo(canvasX, canvasY)
+                    ctx.stroke()
+
+                    ctx.lineWidth = 2
+                    ctx.beginPath()
+                    ctx.arc(canvasX, canvasY, 15, 0, 2*Math.PI)
+                    ctx.fill()
+                    ctx.stroke()
+
+                    window.requestAnimationFrame(draw)
+                }
+                window.requestAnimationFrame(draw)
                 })
             })()
         </script>

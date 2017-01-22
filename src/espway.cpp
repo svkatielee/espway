@@ -73,6 +73,8 @@ const unsigned long BATTERY_INTERVAL = 500;
 const unsigned int BATTERY_THRESHOLD = 750;
 unsigned long lastBatteryCheck = 0;
 
+bool motorsEnabled = false;
+
 
 void setBothEyes(RgbColor &color) {
     eyes.SetPixelColor(0, color);
@@ -106,8 +108,13 @@ void initPID() {
 
 
 void setMotors(q16 leftSpeed, q16 rightSpeed) {
-    setMotorSpeed(1, 12, -rightSpeed + steeringBias);
-    setMotorSpeed(0, 15, -leftSpeed - steeringBias);
+    if (motorsEnabled) {
+        setMotorSpeed(1, 12, -rightSpeed + steeringBias);
+        setMotorSpeed(0, 15, -leftSpeed - steeringBias);
+    } else {
+        setMotorSpeed(1, 12, 0);
+        setMotorSpeed(0, 15, 0);
+    }
     motorCommit();
 }
 
@@ -297,9 +304,9 @@ void loop() {
             myState = FALLEN;
             setBothEyes(BLUE);
             motorSpeed = 0;
+            motorsEnabled = false;
         }
 
-        setMotors(motorSpeed, motorSpeed);
     } else if (myState == FALLEN) {
         if (spitch < Q16_ONE/2 && spitch > -Q16_ONE/2) {
             myState = RUNNING;
@@ -307,8 +314,11 @@ void loop() {
             pid_reset(spitch, STABLE_ANGLE, 0, &motorPidSettings,
                 &motorPidState);
             pid_reset(0, 0, STABLE_ANGLE, &anglePidSettings, &anglePidState);
+            motorsEnabled = true;
         }
     }
+
+    setMotors(motorSpeed, motorSpeed);
 
     doLog(spitch, sroll);
 
@@ -322,8 +332,8 @@ void loop() {
 
         if (analogRead(A0) < BATTERY_THRESHOLD) {
             myState = CUTOFF;
-            setMotors(0, 0);
             setBothEyes(RED);
+            motorsEnabled = false;
         }
     }
 }
