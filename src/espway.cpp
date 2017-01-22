@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Hash.h>
 #include <Wire.h>
+#include <Ticker.h>
 #include <ESP8266mDNS.h>
 #include <ArduinoOTA.h>
 #include <I2Cdev.h>
@@ -14,7 +15,7 @@
 
 
 enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY, LOG_PITCH_ROLL, LOG_NONE, GYRO_CALIB };
-enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN };
+enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN, CUTOFF };
 
 const float BETA = 0.1f;
 const int MPU_RATE = 0;
@@ -67,6 +68,18 @@ RgbColor RED(180, 0, 0);
 RgbColor YELLOW(180, 180, 0);
 RgbColor GREEN(0, 180, 0);
 
+Ticker batteryWatch;
+
+volatile bool gShouldMeasureBattery = false;
+void batteryTick() {
+    gShouldMeasureBattery = true;
+}
+
+
+void measureBattery() {
+    unsigned int val = analogRead(A0);
+}
+
 
 void setBothEyes(RgbColor &color) {
     eyes.SetPixelColor(0, color);
@@ -88,9 +101,9 @@ void initPID() {
         &motorPidState);
     // Angle PID
     pid_initialize(
-        Q16_ONE,  // Kp
-        Q16_ONE,  // Ki
-        Q16_ONE / 1000,  // Kd
+        Q16_ONE * 2,  // Kp
+        Q16_ONE / 2,  // Ki
+        Q16_ONE / 500,  // Kd
         Q16_ONE / 1000,  // dt
         -Q16_ONE * 3/4,  // out_min
         Q16_ONE * 3/4,  // out_max
@@ -100,8 +113,8 @@ void initPID() {
 
 
 void setMotors(q16 leftSpeed, q16 rightSpeed) {
-    setMotorSpeed(1, 12, rightSpeed - steeringBias);
-    setMotorSpeed(0, 15, leftSpeed + steeringBias);
+    setMotorSpeed(1, 12, -rightSpeed + steeringBias);
+    setMotorSpeed(0, 15, -leftSpeed - steeringBias);
     motorCommit();
 }
 
@@ -117,7 +130,7 @@ void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
     // Parse steering command
     if (len >= 2) {
         steeringBias = (Q16_ONE / 8 * signed_data[0]) / 128;
-        targetSpeed = (Q16_ONE / 3 * signed_data[1]) / 128;
+        targetSpeed = (Q16_ONE * 2/3 * signed_data[1]) / 128;
     }
 }
 
@@ -137,6 +150,8 @@ void mpuInterrupt() {
 
 
 void setup() {
+    pinMode(A0, INPUT);
+
     Serial.begin(115200);
 
     initPID();
@@ -167,18 +182,12 @@ void setup() {
     mpu.setXGyroOffset(GYRO_OFFSETS[0]);
     mpu.setYGyroOffset(GYRO_OFFSETS[1]);
     mpu.setZGyroOffset(GYRO_OFFSETS[2]);
-    attachInterrupt(4, mpuInterrupt, RISING);
+    attachInterrupt(4, mpuInterrupt, FALLING);
 
     // WiFi soft AP init
+    WiFi.persistent(false);
+    WiFi.softAP("ESPway", NULL);
     // WiFi.softAP("ESPway", NULL, 1, 0, 1);  // Use this as soon as new Arduino framework is released
-    struct softap_config conf;
-    strcpy(reinterpret_cast<char*>(conf.ssid), "ESPway");
-    conf.channel = 1;
-    conf.ssid_len = strlen("ESPway");
-    conf.ssid_hidden = false;
-    conf.max_connection = 1;
-    conf.beacon_interval = 100;
-    wifi_softap_set_config_current(&conf);
 
     // ArduinoOTA init
     ArduinoOTA.begin();
@@ -314,5 +323,9 @@ void loop() {
         sendQuaternion();
         lastSentQuat = curTime;
     }
-}
 
+    if (gShouldMeasureBattery) {
+        gShouldMeasureBattery = false;
+        measureBattery();
+    }
+}
