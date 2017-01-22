@@ -179,7 +179,7 @@ void setup() {
     mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_2000);
     mpu.setIntDataReadyEnabled(true);
     mpu.setInterruptMode(MPU6050_INTMODE_ACTIVELOW);
-    mpu.setInterruptDrive(MPU6050_INTDRV_PUSHPULL);
+    mpu.setInterruptDrive(MPU6050_INTDRV_PUSHPULL);  // TODO try open drain here
     mpu.setIntEnabled(true);
     mpu.setXGyroOffset(GYRO_OFFSETS[0]);
     mpu.setYGyroOffset(GYRO_OFFSETS[1]);
@@ -349,3 +349,4 @@ void loop() {
         }
     }
 }
+
