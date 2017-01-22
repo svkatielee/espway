@@ -14,7 +14,7 @@
 #include "pid.h"
 
 
-enum mode { LOG_FREQ, LOG_RAW, LOG_GRAVXY, LOG_PITCH_ROLL, LOG_NONE, GYRO_CALIB };
+enum mode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE, GYRO_CALIB };
 enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN, CUTOFF };
 
 const float BETA = 0.1f;
@@ -216,7 +216,7 @@ void setup() {
 }
 
 
-void doLog(q16 spitch, q16 sroll) {
+void doLog(q16 spitch) {
     if (MYMODE == LOG_RAW) {
         Serial.print(ax); Serial.print(",");
         Serial.print(ay); Serial.print(",");
@@ -224,10 +224,6 @@ void doLog(q16 spitch, q16 sroll) {
         Serial.print(gx); Serial.print(",");
         Serial.print(gy); Serial.print(",");
         Serial.println(gz);
-    } else if (MYMODE == LOG_GRAVXY) {
-        q16 half_gravx = q16_mul(quat.q1, quat.q3) - q16_mul(quat.q0, quat.q2);
-        q16 half_gravy = q16_mul(quat.q0, quat.q1) + q16_mul(quat.q2, quat.q3);
-        Serial.printf("%d, %d\n", half_gravx, half_gravy);
     } else if (MYMODE == LOG_FREQ) {
         unsigned long ms = millis();
         if (++sampleCounter == N_SAMPLES) {
@@ -247,8 +243,8 @@ void doLog(q16 spitch, q16 sroll) {
             Serial.print("Y: "); Serial.println(gyroOffsetAccum[1] / N_GYRO_SAMPLES);
             Serial.print("Z: "); Serial.println(gyroOffsetAccum[2] / N_GYRO_SAMPLES);
         }
-    } else if (MYMODE == LOG_PITCH_ROLL) {
-        Serial.printf("%d,%d\n", spitch, sroll);
+    } else if (MYMODE == LOG_PITCH) {
+        Serial.println(spitch);
     }
 }
 
@@ -284,8 +280,7 @@ void loop() {
     // Update orientation estimate
     MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor, rawAccel, rawGyro,
         &quat);
-    // Retrieve sines of roll and pitch angles
-    q16 sroll = sinRoll(&quat);
+    // Calculate sine of pitch angle from quaternion
     q16 spitch = sinPitch(&quat);
 
     // Exponential smoothing of target speed
@@ -332,7 +327,7 @@ void loop() {
 
     yield();
 
-    doLog(spitch, sroll);
+    doLog(spitch);
 
     if (sendQuat && curTime - lastSentQuat > QUAT_DELAY) {
         sendQuaternion();
