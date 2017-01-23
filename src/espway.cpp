@@ -258,6 +258,9 @@ void sendQuaternion() {
 void loop() {
     while (!intFlag) {
         ArduinoOTA.handle();
+        if (intFlag) {
+            break;
+        }
         yield();
     }
 
