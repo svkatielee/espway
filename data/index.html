@@ -49,14 +49,16 @@
                 let sendInt8 = bytes => ws.send((new Int8Array(bytes)).buffer)
 
                 let myCanvas = byId('joystick')
+                let dpr = window.devicePixelRatio
                 let canvasWidth = myCanvas.offsetWidth,
                     canvasHeight = myCanvas.offsetHeight
-                myCanvas.width = canvasWidth
-                myCanvas.height = canvasHeight
+                myCanvas.width = canvasWidth * dpr
+                myCanvas.height = canvasHeight * dpr
                 let ctx = myCanvas.getContext('2d')
                 ctx.lineWidth = 10
                 ctx.strokeStyle = 'black'
                 ctx.fillStyle = 'red'
+                ctx.scale(dpr, dpr)
 
                 let mouseIsDown = false
                 let hasCurrentTouch = false
