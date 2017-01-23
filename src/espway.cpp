@@ -174,6 +174,8 @@ void setup() {
     mpu.setIntDataReadyEnabled(true);
     mpu.setInterruptMode(MPU6050_INTMODE_ACTIVEHIGH);
     mpu.setInterruptDrive(MPU6050_INTDRV_PUSHPULL);
+    mpu.setInterruptLatch(true);
+    mpu.setInterruptLatchClear(true);
     mpu.setIntEnabled(true);
     mpu.setXGyroOffset(GYRO_OFFSETS[0]);
     mpu.setYGyroOffset(GYRO_OFFSETS[1]);
@@ -269,7 +271,6 @@ void loop() {
 
     // Perform MPU quaternion update
     intFlag = false;
-    mpu.getIntStatus();
     int16_t rawAccel[3];
     int16_t rawGyro[3];
     mpu.getMotion6(&rawAccel[0], &rawAccel[1], &rawAccel[2],
