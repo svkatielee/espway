@@ -32,7 +32,7 @@ long int gyroOffsetAccum[] = { 0, 0, 0 };
 int nGyroSamples = 0;
 
 const q16 SMOOTHING_PARAM = Q16_ONE / 500;
-const q16 TARGET_SMOOTHING_PARAM = Q16_ONE / 500;
+const q16 TARGET_SMOOTHING_PARAM = Q16_ONE / 1000;
 
 pidsettings anglePidSettings;
 pidsettings motorPidSettings;
