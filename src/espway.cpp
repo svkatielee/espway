@@ -213,11 +213,11 @@ void setup() {
 
 void doLog(q16 spitch) {
     if (MYMODE == LOG_RAW) {
-        Serial.print(ax); Serial.print(",");
-        Serial.print(ay); Serial.print(",");
-        Serial.print(az); Serial.print(",");
-        Serial.print(gx); Serial.print(",");
-        Serial.print(gy); Serial.print(",");
+        Serial.print(ax); Serial.print(',');
+        Serial.print(ay); Serial.print(',');
+        Serial.print(az); Serial.print(',');
+        Serial.print(gx); Serial.print(',');
+        Serial.print(gy); Serial.print(',');
         Serial.println(gz);
     } else if (MYMODE == LOG_FREQ) {
         unsigned long ms = millis();
