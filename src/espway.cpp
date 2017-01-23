@@ -8,9 +8,12 @@
 #include <ESPAsyncWebServer.h>
 #include <NeoPixelBus.h>
 
-#include "imu.h"
 #include "motor.h"
+
+extern "C" {
+#include "imu.h"
 #include "pid.h"
+}
 
 
 enum mode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE, GYRO_CALIB };

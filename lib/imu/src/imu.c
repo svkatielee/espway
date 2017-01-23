@@ -43,7 +43,10 @@ void linearAcceleration(quaternion_fix * orientation, int16_t *rawAccel,
     quaternion_fix qRawAccel, qWorldAccel;
 
     // Rotate the acceleration vector to the world frame
-    qRawAccel = { 0, rawAccel[0], rawAccel[1], rawAccel[2] };
+    qRawAccel.q0 = 0;
+    qRawAccel.q1 = rawAccel[0];
+    qRawAccel.q2 = rawAccel[1];
+    qRawAccel.q3 = rawAccel[2];
     quatRotate(orientation, &qRawAccel, &qWorldAccel);
 
     // Return the resulting acceleration, canceling out gravity

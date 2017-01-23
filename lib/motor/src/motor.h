@@ -1,7 +1,7 @@
 #pragma once
 
-#include "q16.h"
 extern "C" {
+#include "q16.h"
 #include "pwm.h"
 }
 
