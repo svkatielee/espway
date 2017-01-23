@@ -50,8 +50,8 @@
 
                 let myCanvas = byId('joystick')
                 let dpr = window.devicePixelRatio
-                let canvasWidth = myCanvas.offsetWidth,
-                    canvasHeight = myCanvas.offsetHeight
+                let canvasWidth = myCanvas.clientWidth,
+                    canvasHeight = myCanvas.clientHeight
                 myCanvas.width = canvasWidth * dpr
                 myCanvas.height = canvasHeight * dpr
                 let ctx = myCanvas.getContext('2d')
@@ -155,4 +155,3 @@
         </script>
     </body>
 </html>
-
