@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <Hash.h>
 #include <Wire.h>
-#include <Ticker.h>
 #include <ESP8266mDNS.h>
 #include <ArduinoOTA.h>
 #include <I2Cdev.h>
