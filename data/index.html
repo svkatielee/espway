@@ -68,15 +68,15 @@
 
                 window.addEventListener('mousemove', e => {
                     if (mouseIsDown) {
-                        pageX = e.clientX
-                        pageY = e.clientY
+                        pageX = e.pageX
+                        pageY = e.pageY
                     }
                 })
 
                 window.addEventListener('mousedown', e => {
                     mouseIsDown = true
-                    pageX = e.clientX
-                    pageY = e.clientY
+                    pageX = e.pageX
+                    pageY = e.pageY
                 })
 
                 window.addEventListener('mouseup', e => {
