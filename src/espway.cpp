@@ -173,13 +173,13 @@ void setup() {
     mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
     mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_2000);
     mpu.setIntDataReadyEnabled(true);
-    mpu.setInterruptMode(MPU6050_INTMODE_ACTIVELOW);
-    mpu.setInterruptDrive(MPU6050_INTDRV_PUSHPULL);  // TODO try open drain here
+    mpu.setInterruptMode(MPU6050_INTMODE_ACTIVEHIGH);
+    mpu.setInterruptDrive(MPU6050_INTDRV_PUSHPULL);
     mpu.setIntEnabled(true);
     mpu.setXGyroOffset(GYRO_OFFSETS[0]);
     mpu.setYGyroOffset(GYRO_OFFSETS[1]);
     mpu.setZGyroOffset(GYRO_OFFSETS[2]);
-    attachInterrupt(4, mpuInterrupt, FALLING);
+    attachInterrupt(4, mpuInterrupt, RISING);
 
     // WiFi soft AP init
     WiFi.persistent(false);
