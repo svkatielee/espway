@@ -274,16 +274,12 @@ void loop() {
         return;
     }
 
-    while (!mpu.getIntDataReadyStatus()) {
-        optimistic_yield(5000);
-    }
+    while (!mpu.getIntDataReadyStatus());
 
     // Perform MPU quaternion update
     int16_t rawAccel[3];
     int16_t rawGyro[3];
     getMotion6(rawAccel, rawGyro);
-    //mpu.getMotion6(&rawAccel[0], &rawAccel[1], &rawAccel[2],
-    //    &rawGyro[0], &rawGyro[1], &rawGyro[2]);
     // Update orientation estimate
     MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor, rawAccel, rawGyro,
         &quat);
