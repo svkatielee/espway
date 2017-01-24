@@ -71,6 +71,7 @@ RgbColor YELLOW(180, 180, 0);
 RgbColor GREEN(0, 180, 0);
 RgbColor BLUE(0, 0, 180);
 RgbColor LILA(180, 180, 0);
+RgbColor BLACK(0, 0, 0);
 
 const unsigned long BATTERY_INTERVAL = 500;
 const unsigned int BATTERY_THRESHOLD = 700;
@@ -148,6 +149,40 @@ void mpuInterrupt() {
 }
 
 
+void mpuInit() {
+    mpu.setClockSource(MPU6050_CLOCK_PLL_XGYRO);
+    mpu.setSleepEnabled(false);
+    mpu.setRate(MPU_RATE);
+    mpu.setTempSensorEnabled(false);
+    mpu.setDLPFMode(MPU6050_DLPF_BW_188);
+    mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
+    mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_2000);
+    mpu.setIntDataReadyEnabled(true);
+    mpu.setInterruptMode(MPU6050_INTMODE_ACTIVEHIGH);
+    mpu.setInterruptDrive(MPU6050_INTDRV_PUSHPULL);
+    mpu.setInterruptLatch(true);
+    mpu.setInterruptLatchClear(true);
+    mpu.setIntEnabled(true);
+    mpu.setXGyroOffset(GYRO_OFFSETS[0]);
+    mpu.setYGyroOffset(GYRO_OFFSETS[1]);
+    mpu.setZGyroOffset(GYRO_OFFSETS[2]);
+}
+
+
+// Adapted from I2Cdevlib: https://github.com/jrowberg/i2cdevlib/blob/master/Arduino/MPU6050/MPU6050.cpp
+int getMotion6(int16_t *accel, int16_t *gyro) {
+    uint8_t buffer[14];
+    int count = I2Cdev::readBytes(0x68, MPU6050_RA_ACCEL_XOUT_H, 14, buffer, 2);
+    accel[0] = (((int16_t)buffer[0]) << 8) | buffer[1];
+    accel[1] = (((int16_t)buffer[2]) << 8) | buffer[3];
+    accel[2] = (((int16_t)buffer[4]) << 8) | buffer[5];
+    gyro[0] = (((int16_t)buffer[8]) << 8) | buffer[9];
+    gyro[1] = (((int16_t)buffer[10]) << 8) | buffer[11];
+    gyro[2] = (((int16_t)buffer[12]) << 8) | buffer[13];
+    return count;
+}
+
+
 void setup() {
     pinMode(A0, INPUT);
 
@@ -167,23 +202,8 @@ void setup() {
     // I2C initialization
     Wire.begin(0, 5);
     Wire.setClock(400000);
-    // MPU6050 initialization
     calculateIMUCoeffs();
-    mpu.initialize();
-    mpu.setRate(MPU_RATE);
-    mpu.setTempSensorEnabled(false);
-    mpu.setDLPFMode(MPU6050_DLPF_BW_188);
-    mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
-    mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_2000);
-    mpu.setIntDataReadyEnabled(true);
-    mpu.setInterruptMode(MPU6050_INTMODE_ACTIVEHIGH);
-    mpu.setInterruptDrive(MPU6050_INTDRV_PUSHPULL);
-    mpu.setInterruptLatch(true);
-    mpu.setInterruptLatchClear(true);
-    mpu.setIntEnabled(true);
-    mpu.setXGyroOffset(GYRO_OFFSETS[0]);
-    mpu.setYGyroOffset(GYRO_OFFSETS[1]);
-    mpu.setZGyroOffset(GYRO_OFFSETS[2]);
+    mpuInit();
     attachInterrupt(4, mpuInterrupt, RISING);
 
     // WiFi soft AP init
@@ -262,6 +282,9 @@ void sendQuaternion() {
 
 void loop() {
     while (!intFlag && !otaStarted) {
+        if (mpu.getSleepEnabled()) {
+            mpuInit();
+        }
         ArduinoOTA.handle();
         if (intFlag) {
             break;
@@ -277,8 +300,9 @@ void loop() {
     intFlag = false;
     int16_t rawAccel[3];
     int16_t rawGyro[3];
-     mpu.getMotion6(&rawAccel[0], &rawAccel[1], &rawAccel[2],
-        &rawGyro[0], &rawGyro[1], &rawGyro[2]);
+    if (getMotion6(rawAccel, rawGyro) != 14) {
+        mpuInit();
+    }
     // Update orientation estimate
     MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor, rawAccel, rawGyro,
         &quat);
@@ -339,8 +363,10 @@ void loop() {
         lastBatteryCheck = curTime;
         if (analogRead(A0) < BATTERY_THRESHOLD) {
             myState = CUTOFF;
-            setBothEyes(RED);
+            setBothEyes(BLACK);
+            mpu.setSleepEnabled(true);
             motorsEnabled = false;
+            ESP.deepSleep(100000000UL);
         }
     }
 }
