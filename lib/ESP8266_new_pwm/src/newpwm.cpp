@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <osapi.h>
 #include <esp8266_peri.h>
 
@@ -12,6 +13,8 @@ int pwmAddChannel(uint8_t pin) {
     if (nPins == PWM_MAX_CHANNELS) {
         return -1;
     }
+
+    pinMode(pin, OUTPUT);
 
     io_info[nPins][0] = 0x60000800 + esp8266_gpioToFn[pin];
     io_info[nPins][1] = GPFFS_GPIO(pin);

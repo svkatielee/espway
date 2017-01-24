@@ -155,8 +155,6 @@ void setup() {
 
     initPID();
     pinMode(12, OUTPUT);
-    pinMode(13, OUTPUT);
-    pinMode(14, OUTPUT);
     pinMode(15, OUTPUT);
     pwmAddChannel(13);
     pwmAddChannel(14);
@@ -279,8 +277,23 @@ void loop() {
     intFlag = false;
     int16_t rawAccel[3];
     int16_t rawGyro[3];
-    mpu.getMotion6(&rawAccel[0], &rawAccel[1], &rawAccel[2],
-        &rawGyro[0], &rawGyro[1], &rawGyro[2]);
+    Wire.beginTransmission(0x68);
+    Wire.write(0x3b);
+    Wire.endTransmission();
+    Wire.beginTransmission(0x68);
+    Wire.requestFrom(0x68, 14);
+    for (int i = 0; i < 3; ++i) {
+        rawAccel[i] = Wire.read() << 8;
+        rawAccel[i] |= Wire.read();
+    }
+    Wire.read(); Wire.read();
+    for (int i = 0; i < 3; ++i) {
+        rawGyro[i] = Wire.read() << 8;
+        rawGyro[i] |= Wire.read();
+    }
+
+    // mpu.getMotion6(&rawAccel[0], &rawAccel[1], &rawAccel[2],
+    //    &rawGyro[0], &rawGyro[1], &rawGyro[2]);
     // Update orientation estimate
     MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor, rawAccel, rawGyro,
         &quat);
