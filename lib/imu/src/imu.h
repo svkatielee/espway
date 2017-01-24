@@ -25,6 +25,7 @@ void linearAccelerationXYProjection(quaternion_fix *orientation,
 
 q16 sinRoll(quaternion_fix * const quat);
 q16 sinPitch(quaternion_fix * const quat);
+q16 sinPitch_gravX(quaternion_fix * const quat);
 
 //=====================================================================================================
 // originally from MadgwickAHRS.h

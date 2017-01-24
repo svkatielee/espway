@@ -83,6 +83,13 @@ q16 sinPitch(quaternion_fix * const quat) {
     return 2 * (q16_mul(quat->q1, quat->q3) - q16_mul(quat->q0, quat->q2));
 }
 
+q16 sinPitch_gravX(quaternion_fix * const quat) {
+    return q16_mul(quat->q0, quat->q0) -
+        q16_mul(quat->q1, quat->q1) -
+        q16_mul(quat->q2, quat->q2) +
+        q16_mul(quat->q3, quat->q3);
+}
+
 //-----------------------------------------------------------------------------
 // IMU algorithm update
 
