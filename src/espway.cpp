@@ -9,7 +9,7 @@
 #include <NeoPixelBus.h>
 
 #include "motor.h"
-
+#include "newpwm.h"
 extern "C" {
 #include "imu.h"
 #include "pid.h"
@@ -118,7 +118,7 @@ void setMotors(q16 leftSpeed, q16 rightSpeed) {
         setMotorSpeed(1, 12, 0);
         setMotorSpeed(0, 15, 0);
     }
-    motorCommit();
+    pwmStart();
 }
 
 
@@ -158,7 +158,9 @@ void setup() {
     pinMode(13, OUTPUT);
     pinMode(14, OUTPUT);
     pinMode(15, OUTPUT);
-    motorInit();
+    pwmAddChannel(13);
+    pwmAddChannel(14);
+    pwmInit();
 
     // NeoPixel eyes initialization
     eyes.Begin();
@@ -344,4 +346,3 @@ void loop() {
         }
     }
 }
-

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "q16.h"
-#include <Arduino.h>
 
 typedef struct {
     q16 Kp;

@@ -22,7 +22,7 @@
   #define SDK_PWM_PERIOD_COMPAT_MODE 0
 #endif
 #ifndef PWM_MAX_CHANNELS
-  #define PWM_MAX_CHANNELS 2
+  #define PWM_MAX_CHANNELS 8
 #endif
 #define PWM_DEBUG 0
 #define PWM_USE_NMI 1
@@ -43,7 +43,6 @@
 #endif
 
 #include <c_types.h>
-#include <pwm.h>
 #include <eagle_soc.h>
 #include <ets_sys.h>
 
@@ -59,7 +58,7 @@ struct pwm_phase {
 
 /* Three sets of PWM phases, the active one, the one used
  * starting with the next cycle, and the one updated
- * by pwm_start. After the update pwm_next_set
+ * by pwmStart. After the update pwm_next_set
  * is set to the last updated set. pwm_current_set is set to
  * pwm_next_set from the interrupt routine during the first
  * pwm phase
@@ -108,6 +107,12 @@ struct timer_regs {
 	uint32_t frc2_alarm;  /* 0x60000630 */
 };
 static struct timer_regs* timer = (struct timer_regs*)(0x60000600);
+
+void pwmStart(void);
+void pwmSetDuty(uint32_t duty, uint8_t channel);
+void pwm_init(uint32_t period, uint32_t *duty, uint32_t pwm_channel_num,
+    uint32_t (*pin_info_list)[3]);
+void pwm_set_period(uint32_t period);
 
 static void ICACHE_RAM_ATTR
 pwm_intr_handler(void)
@@ -183,7 +188,7 @@ pwm_init(uint32_t period, uint32_t *duty, uint32_t pwm_channel_num,
 		gpio_mask[n] = 1 << (*pin_info)[2];
 		all |= 1 << (*pin_info)[2];
 		if (duty)
-			pwm_set_duty(duty[n], n);
+			pwmSetDuty(duty[n], n);
 	}
 	GPIO_REG_WRITE(GPIO_OUT_W1TC_ADDRESS, all);
 	GPIO_REG_WRITE(GPIO_ENABLE_W1TS_ADDRESS, all);
@@ -200,7 +205,7 @@ pwm_init(uint32_t period, uint32_t *duty, uint32_t pwm_channel_num,
 	timer->frc1_int &= ~FRC1_INT_CLR_MASK;
 	timer->frc1_ctrl = 0;
 
-	pwm_start();
+	pwmStart();
 }
 
 __attribute__ ((noinline))
@@ -352,7 +357,7 @@ _pwm_phases_prep(struct pwm_phase* pwm)
 }
 
 void ICACHE_FLASH_ATTR
-pwm_start(void)
+pwmStart(void)
 {
 	pwm_phase_array* pwm = &pwm_phases[0];
 
@@ -399,7 +404,7 @@ pwm_start(void)
 }
 
 void ICACHE_FLASH_ATTR
-pwm_set_duty(uint32_t duty, uint8_t channel)
+pwmSetDuty(uint32_t duty, uint8_t channel)
 {
 	if (channel > PWM_MAX_CHANNELS)
 		return;
@@ -446,4 +451,3 @@ set_pwm_debug_en(uint8_t print_en)
 {
 	(void) print_en;
 }
-
