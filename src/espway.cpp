@@ -70,7 +70,7 @@ RgbColor RED(180, 0, 0);
 RgbColor YELLOW(180, 180, 0);
 RgbColor GREEN(0, 180, 0);
 RgbColor BLUE(0, 0, 180);
-RgbColor LILA(180, 180, 0);
+RgbColor LILA(180, 0, 180);
 RgbColor BLACK(0, 0, 0);
 
 const unsigned long BATTERY_INTERVAL = 500;

@@ -1,0 +1,14 @@
+#!/bin/sh
+
+if [ "$1" == "fs" ] || [ "$2" == "fs" ]; then
+    target="uploadfs"
+else
+    target="upload"
+fi
+
+if [ "$1" == "ota" ] || [ "$2" == "ota" ]; then
+    exec pio run -t "$target" --upload-port 192.168.4.1
+else
+    exec pio run -t "$target"
+fi
+
