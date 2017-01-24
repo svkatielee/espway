@@ -158,9 +158,6 @@ void mpuInit() {
     mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
     mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_2000);
     mpu.setIntDataReadyEnabled(true);
-    mpu.setInterruptMode(MPU6050_INTMODE_ACTIVEHIGH);
-    mpu.setInterruptDrive(MPU6050_INTDRV_PUSHPULL);
-    mpu.setInterruptLatch(true);
     mpu.setInterruptLatchClear(true);
     mpu.setIntEnabled(true);
     mpu.setXGyroOffset(GYRO_OFFSETS[0]);
@@ -300,7 +297,7 @@ void loop() {
     intFlag = false;
     int16_t rawAccel[3];
     int16_t rawGyro[3];
-    if (getMotion6(rawAccel, rawGyro) != 14) {
+    if (mpu.getSleepEnabled() || getMotion6(rawAccel, rawGyro) != 14) {
         mpuInit();
     }
     // Update orientation estimate
