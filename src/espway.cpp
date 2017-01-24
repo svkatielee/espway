@@ -175,7 +175,9 @@ int getMotion6(int16_t *accel, int16_t *gyro) {
 void setup() {
     pinMode(A0, INPUT);
 
-    Serial.begin(115200);
+    if (LOGMODE != LOG_NONE) {
+        Serial.begin(115200);
+    }
 
     initPID();
     pinMode(12, OUTPUT);
@@ -355,3 +357,4 @@ void loop() {
         lastOtaHandled = curTime;
     }
 }
+
