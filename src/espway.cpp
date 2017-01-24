@@ -16,12 +16,12 @@ extern "C" {
 }
 
 
-enum mode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE, GYRO_CALIB };
+enum logmode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE, GYRO_CALIB };
 enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN, CUTOFF };
 
 const float BETA = 0.1f;
 const int MPU_RATE = 0;
-const mode MYMODE = LOG_NONE;
+const logmode LOGMODE = LOG_NONE;
 const int N_SAMPLES = 1000;
 const int QUAT_DELAY = 50;
 
@@ -59,7 +59,6 @@ int16_t ax, ay, az, gx, gy, gz;
 quaternion_fix quat = { Q16_MULTIPLIER, 0, 0, 0 };
 q16 beta, gyroIntegrationFactor;
 
-unsigned long lastSentQuat = 0;
 bool sendQuat = false;
 AsyncWebSocketClient *wsclient = NULL;
 unsigned long lastTime = 0;
@@ -75,9 +74,9 @@ RgbColor BLACK(0, 0, 0);
 
 const unsigned long BATTERY_INTERVAL = 500;
 const unsigned int BATTERY_THRESHOLD = 700;
-unsigned long lastBatteryCheck = 0;
 
 bool motorsEnabled = false;
+bool otaStarted = false;
 
 
 void setBothEyes(RgbColor &color) {
@@ -126,6 +125,7 @@ void setMotors(q16 leftSpeed, q16 rightSpeed) {
 void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
     AwsEventType type, void * arg, uint8_t *data, size_t len) {
     int8_t *signed_data = (int8_t *)data;
+    wsclient = client;
     // Parse steering command
     if (len >= 2) {
         steeringBias = (Q16_ONE / 8 * signed_data[0]) / 128;
@@ -142,13 +142,6 @@ void calculateIMUCoeffs() {
 }
 
 
-bool otaStarted = false;
-volatile bool intFlag = false;
-void mpuInterrupt() {
-    intFlag = true;
-}
-
-
 void mpuInit() {
     mpu.setClockSource(MPU6050_CLOCK_PLL_XGYRO);
     mpu.setSleepEnabled(false);
@@ -158,7 +151,6 @@ void mpuInit() {
     mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
     mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_2000);
     mpu.setIntDataReadyEnabled(true);
-    mpu.setInterruptLatchClear(true);
     mpu.setIntEnabled(true);
     mpu.setXGyroOffset(GYRO_OFFSETS[0]);
     mpu.setYGyroOffset(GYRO_OFFSETS[1]);
@@ -201,7 +193,7 @@ void setup() {
     Wire.setClock(400000);
     calculateIMUCoeffs();
     mpuInit();
-    attachInterrupt(4, mpuInterrupt, RISING);
+    //attachInterrupt(4, mpuInterrupt, RISING);
 
     // WiFi soft AP init
     WiFi.persistent(false);
@@ -234,21 +226,21 @@ void setup() {
 
 
 void doLog(q16 spitch) {
-    if (MYMODE == LOG_RAW) {
+    if (LOGMODE == LOG_RAW) {
         Serial.print(ax); Serial.print(',');
         Serial.print(ay); Serial.print(',');
         Serial.print(az); Serial.print(',');
         Serial.print(gx); Serial.print(',');
         Serial.print(gy); Serial.print(',');
         Serial.println(gz);
-    } else if (MYMODE == LOG_FREQ) {
+    } else if (LOGMODE == LOG_FREQ) {
         unsigned long ms = millis();
         if (++sampleCounter == N_SAMPLES) {
             Serial.println(N_SAMPLES * 1000 / (ms - lastTime));
             sampleCounter = 0;
             lastTime = ms;
         }
-    } else if (MYMODE == GYRO_CALIB && nGyroSamples != N_GYRO_SAMPLES) {
+    } else if (LOGMODE == GYRO_CALIB && nGyroSamples != N_GYRO_SAMPLES) {
         gyroOffsetAccum[0] += gx;
         gyroOffsetAccum[1] += gy;
         gyroOffsetAccum[2] += gz;
@@ -260,7 +252,7 @@ void doLog(q16 spitch) {
             Serial.print("Y: "); Serial.println(gyroOffsetAccum[1] / N_GYRO_SAMPLES);
             Serial.print("Z: "); Serial.println(gyroOffsetAccum[2] / N_GYRO_SAMPLES);
         }
-    } else if (MYMODE == LOG_PITCH) {
+    } else if (LOGMODE == LOG_PITCH) {
         Serial.println(spitch);
     }
 }
@@ -278,28 +270,21 @@ void sendQuaternion() {
 
 
 void loop() {
-    while (!intFlag && !otaStarted) {
-        if (mpu.getSleepEnabled()) {
-            mpuInit();
-        }
-        ArduinoOTA.handle();
-        if (intFlag) {
-            break;
-        }
-        yield();
-    }
-
     if (otaStarted) {
+        ArduinoOTA.handle();
         return;
     }
 
+    while (!mpu.getIntDataReadyStatus()) {
+        optimistic_yield(5000);
+    }
+
     // Perform MPU quaternion update
-    intFlag = false;
     int16_t rawAccel[3];
     int16_t rawGyro[3];
-    if (mpu.getSleepEnabled() || getMotion6(rawAccel, rawGyro) != 14) {
-        mpuInit();
-    }
+    getMotion6(rawAccel, rawGyro);
+    //mpu.getMotion6(&rawAccel[0], &rawAccel[1], &rawAccel[2],
+    //    &rawGyro[0], &rawGyro[1], &rawGyro[2]);
     // Update orientation estimate
     MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor, rawAccel, rawGyro,
         &quat);
@@ -347,15 +332,17 @@ void loop() {
 
     setMotors(motorSpeed, motorSpeed);
 
-    yield();
+    if (LOGMODE != LOG_NONE) {
+        doLog(spitch);
+    }
 
-    doLog(spitch);
-
+    static unsigned long lastSentQuat = 0;
     if (sendQuat && curTime - lastSentQuat > QUAT_DELAY) {
         sendQuaternion();
         lastSentQuat = curTime;
     }
 
+    static unsigned long lastBatteryCheck = 0;
     if (curTime - lastBatteryCheck > BATTERY_INTERVAL) {
         lastBatteryCheck = curTime;
         if (analogRead(A0) < BATTERY_THRESHOLD) {
@@ -365,5 +352,11 @@ void loop() {
             motorsEnabled = false;
             ESP.deepSleep(100000000UL);
         }
+    }
+
+    static unsigned long lastOtaHandled = 0;
+    if (curTime - lastOtaHandled > 100) {
+        ArduinoOTA.handle();
+        lastOtaHandled = curTime;
     }
 }
