@@ -142,7 +142,7 @@ void calculateIMUCoeffs() {
 }
 
 
-void mpuInit() {
+bool mpuInit() {
     mpu.setClockSource(MPU6050_CLOCK_PLL_XGYRO);
     mpu.setSleepEnabled(false);
     mpu.setRate(MPU_RATE);
@@ -155,6 +155,7 @@ void mpuInit() {
     mpu.setXGyroOffset(GYRO_OFFSETS[0]);
     mpu.setYGyroOffset(GYRO_OFFSETS[1]);
     mpu.setZGyroOffset(GYRO_OFFSETS[2]);
+    return mpu.getDeviceID() == 0x34;
 }
 
 
@@ -186,15 +187,20 @@ void setup() {
     pwmAddChannel(14);
     pwmInit();
 
-    // NeoPixel eyes initialization
     eyes.Begin();
-    setBothEyes(YELLOW);
+    setBothEyes(BLACK);
 
     // I2C initialization
     Wire.begin(4, 5);
     Wire.setClock(400000);
     calculateIMUCoeffs();
-    mpuInit();
+    if (mpuInit()) {
+        // NeoPixel eyes initialization
+        setBothEyes(YELLOW);
+    } else {
+        setBothEyes(RED);
+        return;
+    }
 
     // WiFi soft AP init
     WiFi.persistent(false);
