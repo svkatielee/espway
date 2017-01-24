@@ -189,11 +189,10 @@ void setup() {
     setBothEyes(YELLOW);
 
     // I2C initialization
-    Wire.begin(0, 5);
+    Wire.begin(4, 5);
     Wire.setClock(400000);
     calculateIMUCoeffs();
     mpuInit();
-    //attachInterrupt(4, mpuInterrupt, RISING);
 
     // WiFi soft AP init
     WiFi.persistent(false);
