@@ -144,6 +144,7 @@ void calculateIMUCoeffs() {
 
 
 bool mpuInit() {
+    noInterrupts();
     mpu.setClockSource(MPU6050_CLOCK_PLL_XGYRO);
     mpu.setSleepEnabled(false);
     mpu.setRate(MPU_RATE);
@@ -156,7 +157,9 @@ bool mpuInit() {
     mpu.setXGyroOffset(GYRO_OFFSETS[0]);
     mpu.setYGyroOffset(GYRO_OFFSETS[1]);
     mpu.setZGyroOffset(GYRO_OFFSETS[2]);
-    return mpu.getDeviceID() == 0x34;
+    int id = mpu.getDeviceID();
+    interrupts();
+    return id == 0x34;
 }
 
 
