@@ -181,7 +181,7 @@ int getMotion6(int16_t *accel, int16_t *gyro) {
 bool getIntDataReadyStatus() {
     uint8_t buffer;
     I2Cdev::readBit(MPU_ADDR, MPU6050_RA_INT_STATUS,
-        MPU6050_INTERRUPT_DATA_RDY_BIT, &buffer, 1);
+        MPU6050_INTERRUPT_DATA_RDY_BIT, &buffer, 2);
     return buffer;
 }
 
