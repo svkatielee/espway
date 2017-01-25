@@ -21,6 +21,7 @@ enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN, CUTOFF };
 
 const float BETA = 0.1f;
 const int MPU_RATE = 0;
+const int MPU_ADDR = 0x68;
 const logmode LOGMODE = LOG_NONE;
 const int N_SAMPLES = 1000;
 const int QUAT_DELAY = 50;
@@ -159,10 +160,12 @@ bool mpuInit() {
 }
 
 
-// Adapted from I2Cdevlib: https://github.com/jrowberg/i2cdevlib/blob/master/Arduino/MPU6050/MPU6050.cpp
+// Adapted from I2Cdevlib: https://github.com/jrowberg/i2cdevlib/blob/master/Arduino/MPU6050/MPU6050.cpp,
+// adding a finite timeout
 int getMotion6(int16_t *accel, int16_t *gyro) {
     uint8_t buffer[14];
-    int count = I2Cdev::readBytes(0x68, MPU6050_RA_ACCEL_XOUT_H, 14, buffer, 2);
+    int count = I2Cdev::readBytes(MPU_ADDR, MPU6050_RA_ACCEL_XOUT_H, 14,
+        buffer, 2);
     accel[0] = (((int16_t)buffer[0]) << 8) | buffer[1];
     accel[1] = (((int16_t)buffer[2]) << 8) | buffer[3];
     accel[2] = (((int16_t)buffer[4]) << 8) | buffer[5];
@@ -170,6 +173,16 @@ int getMotion6(int16_t *accel, int16_t *gyro) {
     gyro[1] = (((int16_t)buffer[10]) << 8) | buffer[11];
     gyro[2] = (((int16_t)buffer[12]) << 8) | buffer[13];
     return count;
+}
+
+
+// Adapted from I2Cdevlib: https://github.com/jrowberg/i2cdevlib/blob/master/Arduino/MPU6050/MPU6050.cpp,
+// adding a finite timeout
+bool getIntDataReadyStatus() {
+    uint8_t buffer;
+    I2Cdev::readBit(MPU_ADDR, MPU6050_RA_INT_STATUS,
+        MPU6050_INTERRUPT_DATA_RDY_BIT, &buffer, 1);
+    return buffer;
 }
 
 
@@ -282,7 +295,7 @@ void loop() {
         return;
     }
 
-    while (!mpu.getIntDataReadyStatus());
+    while (!getIntDataReadyStatus());
 
     // Perform MPU quaternion update
     int16_t rawAccel[3];
