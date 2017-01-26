@@ -7,10 +7,10 @@
 int32_t PWMPERIOD = 2500;
 
 static uint8_t nPins = 0;
-static uint32_t io_info[PWM_MAX_CHANNELS][3];
+static uint32_t io_info[8][3];
 
-int pwmAddChannel(uint8_t pin) {
-    if (nPins == PWM_MAX_CHANNELS) {
+int pwm_add_channel(uint8_t pin) {
+    if (nPins == 8) {
         return -1;
     }
 
@@ -24,12 +24,13 @@ int pwmAddChannel(uint8_t pin) {
     return nPins - 1;
 }
 
-void pwmInit(uint32_t period) {
+void pwm_init(uint32_t period) {
     PWMPERIOD = period;
 
-    uint32_t pwm_duty_init[PWM_MAX_CHANNELS];
-    memset(pwm_duty_init, 0, PWM_MAX_CHANNELS * sizeof(uint32_t));
+    uint32_t pwm_duty_init[8];
+    memset(pwm_duty_init, 0, 8 * sizeof(uint32_t));
 
     pwm_init(period, pwm_duty_init, nPins, io_info);
-    pwmStart();
+    pwm_start();
 }
+

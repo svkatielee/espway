@@ -8,9 +8,9 @@ void setMotorSpeed(int channel, int dirPin, q16 speed) {
 
     if (speed < 0) {
         digitalWrite(dirPin, HIGH);
-        pwmSetDuty(PWMPERIOD + speed, channel);
+        pwm_set_duty(PWMPERIOD + speed, channel);
     } else {
         digitalWrite(dirPin, LOW);
-        pwmSetDuty(speed, channel);
+        pwm_set_duty(speed, channel);
     }
 }

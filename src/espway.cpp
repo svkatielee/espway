@@ -119,7 +119,7 @@ void setMotors(q16 leftSpeed, q16 rightSpeed) {
         setMotorSpeed(1, 12, 0);
         setMotorSpeed(0, 15, 0);
     }
-    pwmStart();
+    pwm_start();
 }
 
 
@@ -199,9 +199,9 @@ void setup() {
     initPID();
     pinMode(12, OUTPUT);
     pinMode(15, OUTPUT);
-    pwmAddChannel(13);
-    pwmAddChannel(14);
-    pwmInit();
+    pwm_add_channel(13);
+    pwm_add_channel(14);
+    pwm_init();
 
     eyes.Begin();
     setBothEyes(BLACK);
