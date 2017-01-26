@@ -2,6 +2,10 @@
 
 #include "q16.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct {
     q16 Kp;
     q16 Ki;
@@ -24,3 +28,8 @@ q16 pid_compute(q16 input, q16 setpoint,
     pidsettings *settings, pidstate *state);
 void pid_reset(q16 input, q16 setpoint, q16 output,
     pidsettings *settings, pidstate *state);
+
+#ifdef __cplusplus
+}
+#endif
+

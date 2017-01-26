@@ -10,6 +10,10 @@
 #include <stdint.h>
 #include "q16.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct {
     q16 q0, q1, q2, q3;
 } quaternion_fix;
@@ -33,3 +37,8 @@ q16 gravityZ(quaternion_fix * const quat);
 //=====================================================================================================
 void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
     int16_t *rawAccel, int16_t *rawGyro, quaternion_fix * const q);
+
+#ifdef __cplusplus
+}
+#endif
+

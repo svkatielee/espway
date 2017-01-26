@@ -10,10 +10,8 @@
 
 #include "motor.h"
 #include "newpwm.h"
-extern "C" {
 #include "imu.h"
 #include "pid.h"
-}
 
 
 enum logmode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE, GYRO_CALIB };
