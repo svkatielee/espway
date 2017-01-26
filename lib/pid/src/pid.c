@@ -18,6 +18,12 @@ void pid_initialize(q16 Kp, q16 Ki, q16 Kd, q16 dt,
     state->last_input = 0;
 }
 
+void pid_initialize_flt(float Kp, float Ki, float Kd, float dt, q16 out_min,
+    q16 out_max, pidsettings *settings, pidstate *state) {
+    pid_initialize(FLT_TO_Q16(Kp), FLT_TO_Q16(Ki), FLT_TO_Q16(Kd),
+        FLT_TO_Q16(dt), out_min, out_max, settings, state);
+}
+
 q16 pid_compute(q16 input, q16 setpoint,
     pidsettings *settings, pidstate *state) {
     q16 error = input - setpoint;

@@ -17,7 +17,16 @@
 enum logmode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE, GYRO_CALIB };
 enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN, CUTOFF };
 
+// Angle PID == the PID controller which regulates motor output signal to reach
+// the target angle
+const float ANGLE_KP = 5.0f, ANGLE_KI = 10.0f, ANGLE_KD = 0.1f;
+// Velocity PID == the PID controller which regulates target angle to reach
+// the target velocity
+const float VEL_KP = 2.0f, VEL_KI = 0.5f, VEL_KD = 0.002f;
+
+const float FALL_LIMIT = 0.75f;
 const float BETA = 0.1f;
+
 const logmode LOGMODE = LOG_NONE;
 const int N_SAMPLES = 1000;
 const int QUAT_DELAY = 50;
@@ -82,30 +91,6 @@ void setBothEyes(RgbColor &color) {
     eyes.SetPixelColor(0, color);
     eyes.SetPixelColor(1, color);
     eyes.Show();
-}
-
-
-void initPID() {
-    // Motor PID
-    pid_initialize(
-        Q16_ONE * 5,  // Kp
-        Q16_ONE * 10,  // Ki
-        Q16_ONE / 10,  // Kd
-        Q16_ONE / 1000,  // dt
-        -Q16_ONE,  // out_min
-        Q16_ONE,  // out_max
-        &motorPidSettings,
-        &motorPidState);
-    // Angle PID
-    pid_initialize(
-        Q16_ONE * 2,  // Kp
-        Q16_ONE / 2,  // Ki
-        Q16_ONE / 500,  // Kd
-        Q16_ONE / 1000,  // dt
-        -Q16_ONE * 3/4,  // out_min
-        Q16_ONE * 3/4,  // out_max
-        &anglePidSettings,
-        &anglePidState);
 }
 
 
@@ -186,7 +171,15 @@ void setup() {
         Serial.begin(115200);
     }
 
-    initPID();
+    // Parameter calculation & initialization
+    pid_initialize_flt(ANGLE_KP, ANGLE_KI, ANGLE_KD, SAMPLE_TIME,
+        -Q16_ONE, Q16_ONE, &motorPidSettings, &motorPidState);
+    pid_initialize_flt(VEL_KP, VEL_KI, VEL_KD, SAMPLE_TIME,
+        FLT_TO_Q16(-FALL_LIMIT), FLT_TO_Q16(FALL_LIMIT),
+        &anglePidSettings, &anglePidState);
+    calculateMadgwickParams(&imuparams, BETA,
+        2.0f * M_PI / 180.0f * 2000.0f, SAMPLE_TIME);
+
     pinMode(12, OUTPUT);
     pinMode(15, OUTPUT);
     pwm_add_channel(13);
@@ -199,8 +192,6 @@ void setup() {
     // I2C initialization
     Wire.begin(4, 5);
     Wire.setClock(400000);
-    calculateMadgwickParams(&imuparams, BETA,
-        2.0f * M_PI / 180.0f * 2000.0f, SAMPLE_TIME);
 
     if (mpuInit()) {
         // NeoPixel eyes initialization
