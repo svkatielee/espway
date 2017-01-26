@@ -73,9 +73,6 @@ RgbColor BLUE(0, 0, 180);
 RgbColor LILA(180, 0, 180);
 RgbColor BLACK(0, 0, 0);
 
-const unsigned long BATTERY_INTERVAL = 500;
-const unsigned int BATTERY_THRESHOLD = 700;
-
 bool motorsEnabled = false;
 bool otaStarted = false;
 
@@ -293,18 +290,23 @@ void sendQuaternion() {
 
 
 void loop() {
+    unsigned long curTime;
+
     if (otaStarted) {
         ArduinoOTA.handle();
         return;
     }
 
-    static unsigned long lastBatteryCheck = 0;
-    unsigned long curTime;
     while (!getIntDataReadyStatus()) {
         curTime = millis();
+        static unsigned long lastBatteryCheck = 1;
+        static unsigned int batteryValue = 1024;
+        const unsigned long BATTERY_INTERVAL = 500;
+        const unsigned int BATTERY_THRESHOLD = 700;
         if (millis() - lastBatteryCheck > BATTERY_INTERVAL) {
             lastBatteryCheck = curTime;
-            if (analogRead(A0) < BATTERY_THRESHOLD) {
+            batteryValue = (3*batteryValue + analogRead(A0)) / 4;
+            if (batteryValue < BATTERY_THRESHOLD) {
                 myState = CUTOFF;
                 setBothEyes(BLACK);
                 mpu.setSleepEnabled(true);
