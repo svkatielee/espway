@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define PWM_MAX_CHANNELS 2
+
 extern int32_t PWMPERIOD;
 
 int pwm_add_channel(uint8_t pin);
