@@ -298,7 +298,21 @@ void loop() {
         return;
     }
 
-    while (!getIntDataReadyStatus());
+    static unsigned long lastBatteryCheck = 0;
+    unsigned long curTime;
+    while (!getIntDataReadyStatus()) {
+        curTime = millis();
+        if (millis() - lastBatteryCheck > BATTERY_INTERVAL) {
+            lastBatteryCheck = curTime;
+            if (analogRead(A0) < BATTERY_THRESHOLD) {
+                myState = CUTOFF;
+                setBothEyes(BLACK);
+                mpu.setSleepEnabled(true);
+                motorsEnabled = false;
+                ESP.deepSleep(100000000UL);
+            }
+        }
+    }
 
     // Perform MPU quaternion update
     int16_t rawAccel[3];
@@ -319,7 +333,7 @@ void loop() {
     travelSpeed = q16_mul(Q16_ONE - SMOOTHING_PARAM, travelSpeed) +
         q16_mul(SMOOTHING_PARAM, motorSpeed);
 
-    unsigned long curTime = millis();
+    curTime = millis();
     if (myState == STABILIZING_ORIENTATION) {
         if (curTime - stageStarted > ORIENTATION_STABILIZE_DURATION) {
             myState = RUNNING;
@@ -359,18 +373,6 @@ void loop() {
     if (sendQuat && curTime - lastSentQuat > QUAT_DELAY) {
         sendQuaternion();
         lastSentQuat = curTime;
-    }
-
-    static unsigned long lastBatteryCheck = 0;
-    if (curTime - lastBatteryCheck > BATTERY_INTERVAL) {
-        lastBatteryCheck = curTime;
-        if (analogRead(A0) < BATTERY_THRESHOLD) {
-            myState = CUTOFF;
-            setBothEyes(BLACK);
-            mpu.setSleepEnabled(true);
-            motorsEnabled = false;
-            ESP.deepSleep(100000000UL);
-        }
     }
 
     static unsigned long lastOtaHandled = 0;
