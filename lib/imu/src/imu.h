@@ -14,18 +14,9 @@ typedef struct {
     q16 q0, q1, q2, q3;
 } quaternion_fix;
 
-void quatConjugate(quaternion_fix *q, quaternion_fix *result);
-void quatProduct(quaternion_fix *q1, quaternion_fix *q2, quaternion_fix *result);
-void quatRotate(quaternion_fix *q, quaternion_fix *v, quaternion_fix *result);
-
-void linearAcceleration(quaternion_fix *orientation, int16_t *rawAccel,
-    int16_t *linearAccel);
-void linearAccelerationXYProjection(quaternion_fix *orientation,
-    int16_t *linearAccel, int16_t *xyprojection);
-
-q16 sinRoll(quaternion_fix * const quat);
-q16 sinPitch(quaternion_fix * const quat);
-q16 sinPitch_gravX(quaternion_fix * const quat);
+q16 gravityX(quaternion_fix * const quat);
+q16 gravityY(quaternion_fix * const quat);
+q16 gravityZ(quaternion_fix * const quat);
 
 //=====================================================================================================
 // originally from MadgwickAHRS.h

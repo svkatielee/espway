@@ -308,7 +308,7 @@ void loop() {
     MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor, rawAccel, rawGyro,
         &quat);
     // Calculate sine of pitch angle from quaternion
-    q16 spitch = sinPitch_gravX(&quat);
+    q16 spitch = gravityZ(&quat);
 
     // Exponential smoothing of target speed
     // https://en.wikipedia.org/wiki/Exponential_smoothing

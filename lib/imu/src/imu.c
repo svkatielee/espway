@@ -1,89 +1,15 @@
 
 #include "imu.h"
 
-void quatConjugate(quaternion_fix *q, quaternion_fix *result) {
-    result->q0 = q->q0;
-    result->q1 = -q->q1;
-    result->q2 = -q->q2;
-    result->q3 = -q->q3;
-}
-
-void quatProduct(quaternion_fix *q1, quaternion_fix *q2, quaternion_fix *result) {
-    result->q0 =
-        q16_mul(q1->q0, q2->q0) -
-        q16_mul(q1->q1, q2->q1) -
-        q16_mul(q1->q2, q2->q2) -
-        q16_mul(q1->q3, q2->q3);
-    result->q1 =
-        q16_mul(q1->q0, q2->q1) +
-        q16_mul(q1->q1, q2->q0) +
-        q16_mul(q1->q2, q2->q3) -
-        q16_mul(q1->q3, q2->q2);
-    result->q2 =
-        q16_mul(q1->q0, q2->q2) -
-        q16_mul(q1->q1, q2->q3) +
-        q16_mul(q1->q2, q2->q0) +
-        q16_mul(q1->q3, q2->q1);
-    result->q3 =
-        q16_mul(q1->q0, q2->q3) +
-        q16_mul(q1->q1, q2->q2) -
-        q16_mul(q1->q2, q2->q1) +
-        q16_mul(q1->q3, q2->q0);
-}
-
-void quatRotate(quaternion_fix *q, quaternion_fix *v, quaternion_fix *result) {
-    quaternion_fix qconj, tmp;
-    quatConjugate(q, &qconj);
-    quatProduct(v, &qconj, &tmp);
-    quatProduct(q, &tmp, result);
-}
-
-void linearAcceleration(quaternion_fix * orientation, int16_t *rawAccel,
-    int16_t *linearAccel) {
-    quaternion_fix qRawAccel, qWorldAccel;
-
-    // Rotate the acceleration vector to the world frame
-    qRawAccel.q0 = 0;
-    qRawAccel.q1 = rawAccel[0];
-    qRawAccel.q2 = rawAccel[1];
-    qRawAccel.q3 = rawAccel[2];
-    quatRotate(orientation, &qRawAccel, &qWorldAccel);
-
-    // Return the resulting acceleration, canceling out gravity
-    linearAccel[0] = qWorldAccel.q1;
-    linearAccel[1] = qWorldAccel.q2;
-    linearAccel[2] = qWorldAccel.q3 - 16383;
-}
-
-void linearAccelerationXYProjection(quaternion_fix * q, int16_t * linearAccel,
-    int16_t *xyprojection) {
-    q16 q0q0 = q16_mul(q->q0, q->q0),
-        q1q1 = q16_mul(q->q1, q->q1),
-        q2q2 = q16_mul(q->q2, q->q2),
-        q3q3 = q16_mul(q->q3, q->q3),
-        q1q2 = q16_mul(q->q1, q->q2),
-        q0q3 = q16_mul(q->q0, q->q3);
-
-    q16 sensorX_x = q0q0 + q1q1 - q2q2 - q3q3;
-    q16 sensorX_y = 2 * (q1q2 + q0q3);
-    q16 sensorY_x = 2 * (q1q2 - q0q3);
-    q16 sensorY_y = q0q0 - q1q1 + q2q2 - q3q3;
-
-    xyprojection[0] = q16_mul(sensorX_x, linearAccel[0]) +
-        q16_mul(sensorX_y, linearAccel[1]);
-    xyprojection[1] = q16_mul(sensorY_x, linearAccel[0]) +
-        q16_mul(sensorY_y, linearAccel[1]);
-}
-
-q16 sinRoll(quaternion_fix * const quat) {
-    return 2 * (q16_mul(quat->q0, quat->q1) + q16_mul(quat->q2, quat->q3));
-}
-
-q16 sinPitch(quaternion_fix * const quat) {
+q16 gravityX(quaternion_fix * const quat) {
     return 2 * (q16_mul(quat->q1, quat->q3) - q16_mul(quat->q0, quat->q2));
 }
 
-q16 sinPitch_gravX(quaternion_fix * const quat) {
+q16 gravityY(quaternion_fix * const quat) {
+    return 2 * (q16_mul(quat->q2, quat->q3) + q16_mul(quat->q0, quat->q1));
+}
+
+q16 gravityZ(quaternion_fix * const quat) {
     return q16_mul(quat->q0, quat->q0) -
         q16_mul(quat->q1, quat->q1) -
         q16_mul(quat->q2, quat->q2) +
