@@ -1,15 +1,15 @@
 
 #include "imu.h"
 
-q16 gravityX(quaternion_fix * const quat) {
+q16 gravityX(const quaternion_fix * const quat) {
     return 2 * (q16_mul(quat->q1, quat->q3) - q16_mul(quat->q0, quat->q2));
 }
 
-q16 gravityY(quaternion_fix * const quat) {
+q16 gravityY(const quaternion_fix * const quat) {
     return 2 * (q16_mul(quat->q2, quat->q3) + q16_mul(quat->q0, quat->q1));
 }
 
-q16 gravityZ(quaternion_fix * const quat) {
+q16 gravityZ(const quaternion_fix * const quat) {
     return q16_mul(quat->q0, quat->q0) -
         q16_mul(quat->q1, quat->q1) -
         q16_mul(quat->q2, quat->q2) +
@@ -33,8 +33,9 @@ q16 gravityZ(quaternion_fix * const quat) {
 // 14/12/2016   Sakari Kapanen  Fixed point version of the algorithm
 //
 //=============================================================================
-void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
-    int16_t *rawAccel, int16_t *rawGyro, quaternion_fix * const q) {
+void MadgwickAHRSupdateIMU_fix(const madgwickparams * const params,
+    const int16_t * const rawAccel, const int16_t * const rawGyro,
+    quaternion_fix * const q) {
     q16 recipNorm;
     q16 q0, q1, q2, q3;
     q16 s0, s1, s2, s3;
@@ -87,7 +88,7 @@ void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
         recipNorm += q16_mul(s2, s2);
         recipNorm += q16_mul(s3, s3);
         recipNorm = q16_rsqrt(recipNorm);
-        recipNorm = q16_mul(beta, recipNorm);
+        recipNorm = q16_mul(params->beta, recipNorm);
         qDot0 -= q16_mul(recipNorm, s0);
         qDot1 -= q16_mul(recipNorm, s1);
         qDot2 -= q16_mul(recipNorm, s2);
@@ -95,10 +96,10 @@ void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
     }
 
     // Integrate rate of change of quaternion to yield quaternion
-    q0 += q16_mul(qDot0, gyroIntegrationFactor);
-    q1 += q16_mul(qDot1, gyroIntegrationFactor);
-    q2 += q16_mul(qDot2, gyroIntegrationFactor);
-    q3 += q16_mul(qDot3, gyroIntegrationFactor);
+    q0 += q16_mul(qDot0, params->gyroIntegrationFactor);
+    q1 += q16_mul(qDot1, params->gyroIntegrationFactor);
+    q2 += q16_mul(qDot2, params->gyroIntegrationFactor);
+    q3 += q16_mul(qDot3, params->gyroIntegrationFactor);
 
     // Normalise quaternion
     recipNorm = q16_mul(q0, q0);
@@ -111,3 +112,10 @@ void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
     q->q2 = q16_mul(q2, recipNorm);
     q->q3 = q16_mul(q3, recipNorm);
 }
+
+void calculateMadgwickParams(madgwickparams * const params,
+    float beta, float gyroScale, float sampleTime) {
+    params->gyroIntegrationFactor = FLT_TO_Q16(0.5f * gyroScale * sampleTime);
+    params->beta = FLT_TO_Q16(beta / (0.5f * gyroScale));
+}
+

@@ -18,9 +18,14 @@ typedef struct {
     q16 q0, q1, q2, q3;
 } quaternion_fix;
 
-q16 gravityX(quaternion_fix * const quat);
-q16 gravityY(quaternion_fix * const quat);
-q16 gravityZ(quaternion_fix * const quat);
+q16 gravityX(const quaternion_fix * const quat);
+q16 gravityY(const quaternion_fix * const quat);
+q16 gravityZ(const quaternion_fix * const quat);
+
+typedef struct {
+    q16 beta;
+    q16 gyroIntegrationFactor;
+} madgwickparams;
 
 //=====================================================================================================
 // originally from MadgwickAHRS.h
@@ -35,8 +40,12 @@ q16 gravityZ(quaternion_fix * const quat);
 // 15/11/2016	Sakari Kapanen	Additions and adaptation to ESP8266: gravity, pitch and roll calculation
 //
 //=====================================================================================================
-void MadgwickAHRSupdateIMU_fix(q16 beta, q16 gyroIntegrationFactor,
-    int16_t *rawAccel, int16_t *rawGyro, quaternion_fix * const q);
+void MadgwickAHRSupdateIMU_fix(const madgwickparams * const params,
+    const int16_t * const rawAccel, const int16_t * const rawGyro,
+    quaternion_fix * const q);
+
+void calculateMadgwickParams(madgwickparams * const params,
+    float beta, float gyroScale, float sampleTime);
 
 #ifdef __cplusplus
 }

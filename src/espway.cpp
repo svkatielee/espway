@@ -18,8 +18,6 @@ enum logmode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE, GYRO_CALIB };
 enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN, CUTOFF };
 
 const float BETA = 0.1f;
-const int MPU_RATE = 0;
-const int MPU_ADDR = 0x68;
 const logmode LOGMODE = LOG_NONE;
 const int N_SAMPLES = 1000;
 const int QUAT_DELAY = 50;
@@ -35,6 +33,7 @@ int nGyroSamples = 0;
 const q16 SMOOTHING_PARAM = Q16_ONE / 500;
 const q16 TARGET_SMOOTHING_PARAM = Q16_ONE / 1000;
 
+madgwickparams imuparams;
 pidsettings anglePidSettings;
 pidsettings motorPidSettings;
 pidstate anglePidState;
@@ -50,12 +49,16 @@ q16 steeringBias = 0;
 unsigned long stageStarted = 0;
 const unsigned long ORIENTATION_STABILIZE_DURATION = 12000;
 
+const uint8_t MPU_RATE = 0;
+const float SAMPLE_TIME = (1.0f + MPU_RATE) / 1000.0f;
+const int MPU_ADDR = 0x68;
+
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 MPU6050 mpu;
 int16_t ax, ay, az, gx, gy, gz;
-quaternion_fix quat = { Q16_MULTIPLIER, 0, 0, 0 };
+quaternion_fix quat = { Q16_ONE, 0, 0, 0 };
 q16 beta, gyroIntegrationFactor;
 
 bool sendQuat = false;
@@ -130,14 +133,6 @@ void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
 }
 
 
-void calculateIMUCoeffs() {
-    float sampleTime = (1.0f + MPU_RATE) / 1000.0f;
-    float gyroScale = 2.0f * M_PI / 180.0f * 2000.0f;
-    gyroIntegrationFactor = float_to_q16(0.5f * gyroScale * sampleTime);
-    beta = float_to_q16(BETA / (0.5f * gyroScale));
-}
-
-
 bool mpuInit() {
     noInterrupts();
     mpu.setClockSource(MPU6050_CLOCK_PLL_XGYRO);
@@ -204,7 +199,9 @@ void setup() {
     // I2C initialization
     Wire.begin(4, 5);
     Wire.setClock(400000);
-    calculateIMUCoeffs();
+    calculateMadgwickParams(&imuparams, BETA,
+        2.0f * M_PI / 180.0f * 2000.0f, SAMPLE_TIME);
+
     if (mpuInit()) {
         // NeoPixel eyes initialization
         setBothEyes(YELLOW);
@@ -319,7 +316,7 @@ void loop() {
     int16_t rawGyro[3];
     getMotion6(rawAccel, rawGyro);
     // Update orientation estimate
-    MadgwickAHRSupdateIMU_fix(beta, gyroIntegrationFactor, rawAccel, rawGyro,
+    MadgwickAHRSupdateIMU_fix(&imuparams, rawAccel, rawGyro,
         &quat);
     // Calculate sine of pitch angle from quaternion
     q16 spitch = gravityZ(&quat);

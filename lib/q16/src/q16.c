@@ -30,21 +30,10 @@ q16 q16_rsqrt(q16 x) {
     size_t i = x_normalized - 64;
     q16 y = Q16_RSQRT_LUT[i] << (-(power / 2) + 1);
     q16 y2 = q16_mul(y, y);
-    y = q16_mul(y, 3*Q16_MULTIPLIER - q16_mul(x, y2)) / 2;
+    y = q16_mul(y, 3*Q16_ONE - q16_mul(x, y2)) / 2;
     y2 = q16_mul(y, y);
-    y = q16_mul(y, 3*Q16_MULTIPLIER - q16_mul(x, y2)) / 2;
+    y = q16_mul(y, 3*Q16_ONE - q16_mul(x, y2)) / 2;
 
     return y;
 }
 
-q16 ICACHE_FLASH_ATTR float_to_q16(float f) {
-    return Q16_MULTIPLIER * f;
-}
-
-int16_t ICACHE_FLASH_ATTR q16_to_int(q16 x) {
-    return x >> 16;
-}
-
-q16 ICACHE_FLASH_ATTR int_to_q16(int16_t x) {
-    return x << 16;
-}
