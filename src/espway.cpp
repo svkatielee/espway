@@ -13,67 +13,40 @@
 #include "imu.h"
 #include "pid.h"
 
+#include "config.h"
+
 
 enum logmode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE, GYRO_CALIB };
-enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN, CUTOFF };
+enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN };
 
-// Angle PID == the PID controller which regulates motor output signal to reach
-// the target angle
-const float ANGLE_KP = 5.0f, ANGLE_KI = 10.0f, ANGLE_KD = 0.1f;
-// Velocity PID == the PID controller which regulates target angle to reach
-// the target velocity
-const float VEL_KP = 2.0f, VEL_KI = 0.5f, VEL_KD = 0.002f;
+const logmode LOGMODE = LOG_PITCH;
 
-const float FALL_LIMIT = 0.75f;
-const float BETA = 0.1f;
+const q16 FALL_LOWER_BOUND = FLT_TO_Q16(STABLE_ANGLE - FALL_LIMIT),
+          FALL_UPPER_BOUND = FLT_TO_Q16(STABLE_ANGLE + FALL_LIMIT);
+const q16 RECOVER_LOWER_BOUND = FLT_TO_Q16(STABLE_ANGLE - RECOVER_LIMIT),
+          RECOVER_UPPER_BOUND = FLT_TO_Q16(STABLE_ANGLE + RECOVER_LIMIT);
 
-const logmode LOGMODE = LOG_NONE;
-const int N_SAMPLES = 1000;
+const int FREQUENCY_SAMPLES = 1000;
 const int QUAT_DELAY = 50;
-
-state myState = STABILIZING_ORIENTATION;
-
-// Gyro calibration variables
-const int N_GYRO_SAMPLES = 10000;
-const int GYRO_OFFSETS[] = { 11, -7, 13 };
-long int gyroOffsetAccum[] = { 0, 0, 0 };
-int nGyroSamples = 0;
-
-const q16 SMOOTHING_PARAM = Q16_ONE / 500;
-const q16 TARGET_SMOOTHING_PARAM = Q16_ONE / 1000;
+const int GYRO_CALIBRATION_SAMPLES = 10000;
 
 madgwickparams imuparams;
-pidsettings anglePidSettings;
-pidsettings motorPidSettings;
-pidstate anglePidState;
-pidstate motorPidState;
-
-const q16 STABLE_ANGLE = (q16)(0.2 * Q16_ONE);
-q16 targetAngle = STABLE_ANGLE;
-q16 motorSpeed = 0;
-q16 travelSpeed = 0;
-q16 targetSpeed = 0;
-q16 smoothedTargetSpeed = 0;
-q16 steeringBias = 0;
-unsigned long stageStarted = 0;
-const unsigned long ORIENTATION_STABILIZE_DURATION = 12000;
-
 const uint8_t MPU_RATE = 0;
 const float SAMPLE_TIME = (1.0f + MPU_RATE) / 1000.0f;
 const int MPU_ADDR = 0x68;
 
+pidsettings anglePidSettings;
+pidsettings motorPidSettings;
+pidstate anglePidState;
+pidstate motorPidState;
+MPU6050 mpu;
+
+q16 targetSpeed = 0;
+q16 steeringBias = 0;
+
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
-
-MPU6050 mpu;
-int16_t ax, ay, az, gx, gy, gz;
-quaternion_fix quat = { Q16_ONE, 0, 0, 0 };
-q16 beta, gyroIntegrationFactor;
-
-bool sendQuat = false;
 AsyncWebSocketClient *wsclient = NULL;
-unsigned long lastTime = 0;
-int sampleCounter = 0;
 
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> eyes(2);
 RgbColor RED(180, 0, 0);
@@ -83,8 +56,9 @@ RgbColor BLUE(0, 0, 180);
 RgbColor LILA(180, 0, 180);
 RgbColor BLACK(0, 0, 0);
 
-bool motorsEnabled = false;
+bool sendQuat = false;
 bool otaStarted = false;
+bool mpuInitSucceeded = false;
 
 
 void setBothEyes(RgbColor &color) {
@@ -95,13 +69,8 @@ void setBothEyes(RgbColor &color) {
 
 
 void setMotors(q16 leftSpeed, q16 rightSpeed) {
-    if (motorsEnabled) {
-        setMotorSpeed(1, 12, -rightSpeed + steeringBias);
-        setMotorSpeed(0, 15, -leftSpeed - steeringBias);
-    } else {
-        setMotorSpeed(1, 12, 0);
-        setMotorSpeed(0, 15, 0);
-    }
+    setMotorSpeed(1, 12, rightSpeed);
+    setMotorSpeed(0, 15, leftSpeed);
     pwm_start();
 }
 
@@ -112,8 +81,8 @@ void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
     wsclient = client;
     // Parse steering command
     if (len >= 2) {
-        steeringBias = (Q16_ONE / 8 * signed_data[0]) / 128;
-        targetSpeed = (Q16_ONE * 2/3 * signed_data[1]) / 128;
+        steeringBias = (FLT_TO_Q16(STEERING_FACTOR) * signed_data[0]) / 128;
+        targetSpeed = (FLT_TO_Q16(SPEED_CONTROL_FACTOR) * signed_data[1]) / 128;
     }
 }
 
@@ -165,8 +134,6 @@ bool getIntDataReadyStatus() {
 
 
 void setup() {
-    pinMode(A0, INPUT);
-
     if (LOGMODE != LOG_NONE) {
         Serial.begin(115200);
     }
@@ -177,86 +144,92 @@ void setup() {
     pid_initialize_flt(VEL_KP, VEL_KI, VEL_KD, SAMPLE_TIME,
         FLT_TO_Q16(-FALL_LIMIT), FLT_TO_Q16(FALL_LIMIT),
         &anglePidSettings, &anglePidState);
-    calculateMadgwickParams(&imuparams, BETA,
+    calculateMadgwickParams(&imuparams, MADGWICK_BETA,
         2.0f * M_PI / 180.0f * 2000.0f, SAMPLE_TIME);
-
-    pinMode(12, OUTPUT);
-    pinMode(15, OUTPUT);
-    pwm_add_channel(13);
-    pwm_add_channel(14);
-    pwm_init();
-
-    eyes.Begin();
-    setBothEyes(BLACK);
-
-    // I2C initialization
-    Wire.begin(4, 5);
-    Wire.setClock(400000);
-
-    if (mpuInit()) {
-        // NeoPixel eyes initialization
-        setBothEyes(YELLOW);
-    } else {
-        setBothEyes(RED);
-        return;
-    }
 
     // WiFi soft AP init
     WiFi.persistent(false);
     WiFi.softAP("ESPway", NULL);
     // WiFi.softAP("ESPway", NULL, 1, 0, 1);  // Use this as soon as new Arduino framework is released
 
-    ArduinoOTA.onStart([]() {
-        otaStarted = true;
-        motorsEnabled = false;
-        setMotors(0, 0);
-        setBothEyes(LILA);
-    });
-    // ArduinoOTA init
-    ArduinoOTA.begin();
-
+    // ESPAsyncWebServer init
     SPIFFS.begin();
-
     ws.onEvent(wsCallback);
     server.addHandler(&ws);
-
     server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
     server.onNotFound([](AsyncWebServerRequest *req) {
         req->send(404);
     });
     server.begin();
 
-    myState = STABILIZING_ORIENTATION;
-    stageStarted = millis();
+    // ArduinoOTA init
+    ArduinoOTA.onStart([]() {
+        otaStarted = true;
+        setMotors(0, 0);
+        setBothEyes(LILA);
+    });
+    ArduinoOTA.begin();
+
+    // NeoPixel init
+    eyes.Begin();
+    setBothEyes(BLACK);
+
+    // I2C & MPU6050 init
+    Wire.begin(4, 5);
+    Wire.setClock(400000);
+    if (mpuInit()) {
+        setBothEyes(YELLOW);
+        mpuInitSucceeded = true;
+    } else {
+        setBothEyes(RED);  // indicate that sensor init failed
+        mpuInitSucceeded = false;
+    }
+
+    // GPIO setup
+    pinMode(A0, INPUT);
+    pinMode(12, OUTPUT);
+    pinMode(15, OUTPUT);
+    digitalWrite(12, LOW);
+    digitalWrite(15, LOW);
+    // PWM init
+    pwm_add_channel(13);
+    pwm_add_channel(14);
+    pwm_init();
 }
 
 
-void doLog(q16 spitch) {
+void doLog(int16_t *rawAccel, int16_t *rawGyro, q16 spitch) {
+    static long int gyroOffsetAccum[] = { 0, 0, 0 };
+    static int nGyroSamples = 0;
+    static unsigned long lastCallTime = 0;
+    static int callCounter = 0;
+
     if (LOGMODE == LOG_RAW) {
-        Serial.print(ax); Serial.print(',');
-        Serial.print(ay); Serial.print(',');
-        Serial.print(az); Serial.print(',');
-        Serial.print(gx); Serial.print(',');
-        Serial.print(gy); Serial.print(',');
-        Serial.println(gz);
+        Serial.print(rawAccel[0]); Serial.print(',');
+        Serial.print(rawAccel[1]); Serial.print(',');
+        Serial.print(rawAccel[2]); Serial.print(',');
+        Serial.print(rawGyro[0]); Serial.print(',');
+        Serial.print(rawGyro[1]); Serial.print(',');
+        Serial.println(rawGyro[2]);
     } else if (LOGMODE == LOG_FREQ) {
         unsigned long ms = millis();
-        if (++sampleCounter == N_SAMPLES) {
-            Serial.println(N_SAMPLES * 1000 / (ms - lastTime));
-            sampleCounter = 0;
-            lastTime = ms;
+        if (++callCounter == FREQUENCY_SAMPLES) {
+            Serial.println(FREQUENCY_SAMPLES * 1000 / (ms - lastCallTime));
+            callCounter = 0;
+            lastCallTime = ms;
         }
-    } else if (LOGMODE == GYRO_CALIB && nGyroSamples != N_GYRO_SAMPLES) {
-        gyroOffsetAccum[0] += gx;
-        gyroOffsetAccum[1] += gy;
-        gyroOffsetAccum[2] += gz;
+    } else if (LOGMODE == GYRO_CALIB &&
+        nGyroSamples != GYRO_CALIBRATION_SAMPLES) {
+        gyroOffsetAccum[0] += rawGyro[0];
+        gyroOffsetAccum[1] += rawGyro[1];
+        gyroOffsetAccum[2] += rawGyro[2];
         nGyroSamples += 1;
 
-        if (nGyroSamples == N_GYRO_SAMPLES) {
+        if (nGyroSamples == GYRO_CALIBRATION_SAMPLES) {
             Serial.println("Gyro offsets:");
-            Serial.print("X: "); Serial.println(gyroOffsetAccum[0] / N_GYRO_SAMPLES);
-            Serial.print("Y: "); Serial.println(gyroOffsetAccum[1] / N_GYRO_SAMPLES);
-            Serial.print("Z: "); Serial.println(gyroOffsetAccum[2] / N_GYRO_SAMPLES);
+            Serial.print("X: "); Serial.println(gyroOffsetAccum[0] / GYRO_CALIBRATION_SAMPLES);
+            Serial.print("Y: "); Serial.println(gyroOffsetAccum[1] / GYRO_CALIBRATION_SAMPLES);
+            Serial.print("Z: "); Serial.println(gyroOffsetAccum[2] / GYRO_CALIBRATION_SAMPLES);
         }
     } else if (LOGMODE == LOG_PITCH) {
         Serial.println(spitch);
@@ -264,39 +237,43 @@ void doLog(q16 spitch) {
 }
 
 
-void sendQuaternion() {
+void sendQuaternion(const quaternion_fix * const quat) {
     int16_t qdata[4];
-    qdata[0] = quat.q0 / 2;
-    qdata[1] = quat.q1 / 2;
-    qdata[2] = quat.q2 / 2;
-    qdata[3] = quat.q3 / 2;
+    qdata[0] = quat->q0 / 2;
+    qdata[1] = quat->q1 / 2;
+    qdata[2] = quat->q2 / 2;
+    qdata[3] = quat->q3 / 2;
     wsclient->binary((uint8_t *)qdata, 8);
     sendQuat = false;
 }
 
 
 void loop() {
-    unsigned long curTime;
-
     if (otaStarted) {
         ArduinoOTA.handle();
         return;
     }
 
+    if (!mpuInitSucceeded) {
+        return;
+    }
+
+    static unsigned long lastBatteryCheck = 0;
+    static unsigned int batteryValue = 1024;
+
+    unsigned long curTime;
+
     while (!getIntDataReadyStatus()) {
         curTime = millis();
-        static unsigned long lastBatteryCheck = 1;
-        static unsigned int batteryValue = 1024;
-        const unsigned long BATTERY_INTERVAL = 500;
-        const unsigned int BATTERY_THRESHOLD = 700;
-        if (millis() - lastBatteryCheck > BATTERY_INTERVAL) {
+        if (ENABLE_BATTERY_CHECK &&
+            curTime - lastBatteryCheck > BATTERY_CHECK_INTERVAL) {
             lastBatteryCheck = curTime;
-            batteryValue = (3*batteryValue + analogRead(A0)) / 4;
-            if (batteryValue < BATTERY_THRESHOLD) {
-                myState = CUTOFF;
+            batteryValue = q16_exponential_smooth(batteryValue, analogRead(A0),
+                FLT_TO_Q16(0.25f));
+            if (batteryValue < (unsigned int)(BATTERY_THRESHOLD * 102.4f)) {
                 setBothEyes(BLACK);
                 mpu.setSleepEnabled(true);
-                motorsEnabled = false;
+                setMotors(0, 0);
                 ESP.deepSleep(100000000UL);
             }
         }
@@ -307,20 +284,21 @@ void loop() {
     int16_t rawGyro[3];
     getMotion6(rawAccel, rawGyro);
     // Update orientation estimate
+    static quaternion_fix quat = { Q16_ONE, 0, 0, 0 };
     MadgwickAHRSupdateIMU_fix(&imuparams, rawAccel, rawGyro,
         &quat);
     // Calculate sine of pitch angle from quaternion
     q16 spitch = gravityZ(&quat);
 
+    static q16 travelSpeed = 0;
+    static q16 smoothedTargetSpeed = 0;
+
     // Exponential smoothing of target speed
-    // https://en.wikipedia.org/wiki/Exponential_smoothing
-    smoothedTargetSpeed = q16_mul(Q16_ONE - TARGET_SMOOTHING_PARAM,
-        smoothedTargetSpeed) + q16_mul(TARGET_SMOOTHING_PARAM, targetSpeed);
+    smoothedTargetSpeed = q16_exponential_smooth(smoothedTargetSpeed,
+        targetSpeed, FLT_TO_Q16(TARGET_SPEED_SMOOTHING));
 
-    // Estimate travel speed by exponential smoothing
-    travelSpeed = q16_mul(Q16_ONE - SMOOTHING_PARAM, travelSpeed) +
-        q16_mul(SMOOTHING_PARAM, motorSpeed);
-
+    static state myState = STABILIZING_ORIENTATION;
+    static unsigned long stageStarted = 0;
     curTime = millis();
     if (myState == STABILIZING_ORIENTATION) {
         if (curTime - stageStarted > ORIENTATION_STABILIZE_DURATION) {
@@ -328,43 +306,47 @@ void loop() {
             stageStarted = curTime;
         }
     } else if (myState == RUNNING) {
-        if (spitch < Q16_ONE*3/4 && spitch > -Q16_ONE*3/4) {
+        if (spitch < FALL_UPPER_BOUND && spitch > FALL_LOWER_BOUND) {
             // Perform PID update
-            targetAngle = pid_compute(travelSpeed, smoothedTargetSpeed,
+            q16 targetAngle = pid_compute(travelSpeed, smoothedTargetSpeed,
                 &anglePidSettings, &anglePidState);
-            motorSpeed = -pid_compute(spitch, targetAngle,
+            q16 motorSpeed = -pid_compute(spitch, targetAngle,
                 &motorPidSettings, &motorPidState);
+
+            // Estimate travel speed by exponential smoothing
+            travelSpeed = q16_exponential_smooth(travelSpeed, motorSpeed,
+                FLT_TO_Q16(TRAVEL_SPEED_SMOOTHING));
+
+            setMotors(motorSpeed - steeringBias, motorSpeed + steeringBias);
         } else {
             myState = FALLEN;
             setBothEyes(BLUE);
-            motorSpeed = 0;
-            motorsEnabled = false;
+            travelSpeed = 0;
+            setMotors(0, 0);
         }
     } else if (myState == FALLEN) {
-        if (spitch < Q16_ONE/2 && spitch > -Q16_ONE/2) {
+        if (spitch < RECOVER_UPPER_BOUND && spitch > RECOVER_LOWER_BOUND) {
             myState = RUNNING;
             setBothEyes(GREEN);
-            pid_reset(spitch, STABLE_ANGLE, 0, &motorPidSettings,
+            pid_reset(spitch, FLT_TO_Q16(STABLE_ANGLE), 0, &motorPidSettings,
                 &motorPidState);
-            pid_reset(0, 0, STABLE_ANGLE, &anglePidSettings, &anglePidState);
-            motorsEnabled = true;
+            pid_reset(0, 0, FLT_TO_Q16(STABLE_ANGLE), &anglePidSettings,
+                &anglePidState);
         }
     }
 
-    setMotors(motorSpeed, motorSpeed);
-
     if (LOGMODE != LOG_NONE) {
-        doLog(spitch);
+        doLog(rawAccel, rawGyro, spitch);
     }
 
     static unsigned long lastSentQuat = 0;
     if (sendQuat && curTime - lastSentQuat > QUAT_DELAY) {
-        sendQuaternion();
+        sendQuaternion(&quat);
         lastSentQuat = curTime;
     }
 
     static unsigned long lastOtaHandled = 0;
-    if (curTime - lastOtaHandled > 100) {
+    if (curTime - lastOtaHandled > 500) {
         ArduinoOTA.handle();
         lastOtaHandled = curTime;
     }
