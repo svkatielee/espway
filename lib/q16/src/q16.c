@@ -37,3 +37,7 @@ q16 q16_rsqrt(q16 x) {
     return y;
 }
 
+q16 q16_exponential_smooth(q16 prevVal, q16 newVal, q16 alpha) {
+    return prevVal - q16_mul(alpha, newVal - prevVal);
+}
+

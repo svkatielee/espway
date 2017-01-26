@@ -15,9 +15,11 @@ typedef int32_t q16;
 #define Q16_TO_INT(x) ((int)((x) >> 16))
 #define INT_TO_Q16(X) (((q16)(x)) << 16)
 
+
 q16 q16_mul(q16 x, q16 y);
 q16 q16_div(q16 x, q16 y);
 q16 q16_rsqrt(q16 x);
+q16 q16_exponential_smooth(q16 prevVal, q16 newVal, q16 alpha);
 
 #ifdef __cplusplus
 }
