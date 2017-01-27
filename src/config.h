@@ -24,7 +24,7 @@ const float FALL_LIMIT = 0.75f,
 
 const float STABLE_ANGLE = 0.2f;
 
-const int16_t GYRO_OFFSETS[] = { 11, -7, 13 };
+const int16_t GYRO_OFFSETS[] = { -27, -89, 14 };
 
 // Undervoltage cutoff check
 const float BATTERY_THRESHOLD = 7.4f;
