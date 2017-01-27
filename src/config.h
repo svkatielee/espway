@@ -29,5 +29,5 @@ const int16_t GYRO_OFFSETS[] = { -27, -89, 14 };
 // Undervoltage cutoff check
 const float BATTERY_THRESHOLD = 7.4f;
 const unsigned long BATTERY_CHECK_INTERVAL = 500;
-const bool ENABLE_BATTERY_CHECK = false;
+const bool ENABLE_BATTERY_CHECK = true;
 
