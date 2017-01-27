@@ -142,7 +142,7 @@ void setup() {
     pid_initialize_flt(ANGLE_KP, ANGLE_KI, ANGLE_KD, SAMPLE_TIME,
         -Q16_ONE, Q16_ONE, &motorPidSettings, &motorPidState);
     pid_initialize_flt(VEL_KP, VEL_KI, VEL_KD, SAMPLE_TIME,
-        FLT_TO_Q16(-FALL_LIMIT), FLT_TO_Q16(FALL_LIMIT),
+        FALL_LOWER_BOUND, FALL_UPPER_BOUND,
         &anglePidSettings, &anglePidState);
     calculateMadgwickParams(&imuparams, MADGWICK_BETA,
         2.0f * M_PI / 180.0f * 2000.0f, SAMPLE_TIME);
@@ -313,11 +313,11 @@ void loop() {
             q16 motorSpeed = -pid_compute(spitch, targetAngle,
                 &motorPidSettings, &motorPidState);
 
+            setMotors(-motorSpeed - steeringBias, -motorSpeed + steeringBias);
+
             // Estimate travel speed by exponential smoothing
             travelSpeed = q16_exponential_smooth(travelSpeed, motorSpeed,
                 FLT_TO_Q16(TRAVEL_SPEED_SMOOTHING));
-
-            setMotors(motorSpeed - steeringBias, motorSpeed + steeringBias);
         } else {
             myState = FALLEN;
             setBothEyes(BLUE);
