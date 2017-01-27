@@ -19,7 +19,7 @@
 enum logmode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE, GYRO_CALIB };
 enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN };
 
-const logmode LOGMODE = LOG_PITCH;
+const logmode LOGMODE = LOG_NONE;
 
 const q16 FALL_LOWER_BOUND = FLT_TO_Q16(STABLE_ANGLE - FALL_LIMIT),
           FALL_UPPER_BOUND = FLT_TO_Q16(STABLE_ANGLE + FALL_LIMIT);
@@ -134,10 +134,6 @@ bool getIntDataReadyStatus() {
 
 
 void setup() {
-    if (LOGMODE != LOG_NONE) {
-        Serial.begin(115200);
-    }
-
     // Parameter calculation & initialization
     pid_initialize_flt(ANGLE_KP, ANGLE_KI, ANGLE_KD, SAMPLE_TIME,
         -Q16_ONE, Q16_ONE, &motorPidSettings, &motorPidState);
@@ -146,6 +142,18 @@ void setup() {
         &anglePidSettings, &anglePidState);
     calculateMadgwickParams(&imuparams, MADGWICK_BETA,
         2.0f * M_PI / 180.0f * 2000.0f, SAMPLE_TIME);
+
+    // I2C & MPU6050 init
+    Wire.begin(4, 5);
+    Wire.setClock(400000);
+    mpuInitSucceeded = mpuInit();
+    // NeoPixel init
+    eyes.Begin();
+    setBothEyes(mpuInitSucceeded ? YELLOW : RED);
+
+    if (LOGMODE != LOG_NONE) {
+        Serial.begin(115200);
+    }
 
     // WiFi soft AP init
     WiFi.persistent(false);
@@ -169,21 +177,6 @@ void setup() {
         setBothEyes(LILA);
     });
     ArduinoOTA.begin();
-
-    // NeoPixel init
-    eyes.Begin();
-    setBothEyes(BLACK);
-
-    // I2C & MPU6050 init
-    Wire.begin(4, 5);
-    Wire.setClock(400000);
-    if (mpuInit()) {
-        setBothEyes(YELLOW);
-        mpuInitSucceeded = true;
-    } else {
-        setBothEyes(RED);  // indicate that sensor init failed
-        mpuInitSucceeded = false;
-    }
 
     // GPIO setup
     pinMode(A0, INPUT);
