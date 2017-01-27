@@ -16,7 +16,7 @@
 #include "config.h"
 
 
-enum logmode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE, GYRO_CALIB };
+enum logmode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE };
 enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN };
 
 const logmode LOGMODE = LOG_NONE;
@@ -28,7 +28,6 @@ const q16 RECOVER_LOWER_BOUND = FLT_TO_Q16(STABLE_ANGLE - RECOVER_LIMIT),
 
 const int FREQUENCY_SAMPLES = 1000;
 const int QUAT_DELAY = 50;
-const int GYRO_CALIBRATION_SAMPLES = 10000;
 
 madgwickparams imuparams;
 const uint8_t MPU_RATE = 0;
@@ -192,8 +191,6 @@ void setup() {
 
 
 void doLog(int16_t *rawAccel, int16_t *rawGyro, q16 spitch) {
-    static long int gyroOffsetAccum[] = { 0, 0, 0 };
-    static int nGyroSamples = 0;
     static unsigned long lastCallTime = 0;
     static int callCounter = 0;
 
@@ -204,6 +201,8 @@ void doLog(int16_t *rawAccel, int16_t *rawGyro, q16 spitch) {
         Serial.print(rawGyro[0]); Serial.print(',');
         Serial.print(rawGyro[1]); Serial.print(',');
         Serial.println(rawGyro[2]);
+    } else if (LOGMODE == LOG_PITCH) {
+        Serial.println(spitch);
     } else if (LOGMODE == LOG_FREQ) {
         unsigned long ms = millis();
         if (++callCounter == FREQUENCY_SAMPLES) {
@@ -211,21 +210,6 @@ void doLog(int16_t *rawAccel, int16_t *rawGyro, q16 spitch) {
             callCounter = 0;
             lastCallTime = ms;
         }
-    } else if (LOGMODE == GYRO_CALIB &&
-        nGyroSamples != GYRO_CALIBRATION_SAMPLES) {
-        gyroOffsetAccum[0] += rawGyro[0];
-        gyroOffsetAccum[1] += rawGyro[1];
-        gyroOffsetAccum[2] += rawGyro[2];
-        nGyroSamples += 1;
-
-        if (nGyroSamples == GYRO_CALIBRATION_SAMPLES) {
-            Serial.println("Gyro offsets:");
-            Serial.print("X: "); Serial.println(gyroOffsetAccum[0] / GYRO_CALIBRATION_SAMPLES);
-            Serial.print("Y: "); Serial.println(gyroOffsetAccum[1] / GYRO_CALIBRATION_SAMPLES);
-            Serial.print("Z: "); Serial.println(gyroOffsetAccum[2] / GYRO_CALIBRATION_SAMPLES);
-        }
-    } else if (LOGMODE == LOG_PITCH) {
-        Serial.println(spitch);
     }
 }
 
