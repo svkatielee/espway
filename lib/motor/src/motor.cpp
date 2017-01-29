@@ -3,8 +3,12 @@
 #include "motor.h"
 #include "newpwm.h"
 
-void setMotorSpeed(int channel, int dirPin, q16 speed) {
+void setMotorSpeed(int channel, int dirPin, q16 speed, bool reverse) {
     speed = constrain(Q16_TO_INT(PWMPERIOD * speed), -PWMPERIOD, PWMPERIOD);
+
+    if (reverse) {
+        speed = -speed;
+    }
 
     if (speed < 0) {
         digitalWrite(dirPin, HIGH);

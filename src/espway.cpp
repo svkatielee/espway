@@ -69,8 +69,8 @@ void setBothEyes(RgbColor &color) {
 
 
 void setMotors(q16 leftSpeed, q16 rightSpeed) {
-    setMotorSpeed(1, 12, rightSpeed);
-    setMotorSpeed(0, 15, leftSpeed);
+    setMotorSpeed(1, 12, rightSpeed, true);
+    setMotorSpeed(0, 15, leftSpeed, true);
     pwm_start();
 }
 
@@ -298,7 +298,7 @@ void loop() {
                 useHighSettings ? &motorHighPidSettings : &anglePidSettings,
                 &anglePidState);
 
-            setMotors(-motorSpeed - steeringBias, -motorSpeed + steeringBias);
+            setMotors(motorSpeed + steeringBias, motorSpeed - steeringBias);
 
             // Estimate travel speed by exponential smoothing
             travelSpeed = q16_exponential_smooth(travelSpeed, motorSpeed,
