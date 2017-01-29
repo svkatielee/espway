@@ -8,9 +8,7 @@ extern "C" {
 
 typedef struct {
     q16 Kp;
-    q16 Ki;
     q16 Ki_times_dt;
-    q16 Kd;
     q16 Kd_over_dt;
     q16 dt;
     q16 out_min;

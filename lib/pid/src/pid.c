@@ -14,9 +14,7 @@ void pid_initialize(q16 Kp, q16 Ki, q16 Kd, q16 dt,
 
 void pid_update_params(q16 Kp, q16 Ki, q16 Kd, pidsettings *settings) {
     settings->Kp = Kp;
-    settings->Ki = Ki;
     settings->Ki_times_dt = q16_mul(Ki, settings->dt);
-    settings->Kd = Kd;
     settings->Kd_over_dt = q16_div(Kd, settings->dt);
 }
 
