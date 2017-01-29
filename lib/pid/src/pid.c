@@ -5,23 +5,25 @@ static inline q16 clamp(q16 x, q16 a, q16 b) {
 }
 
 void pid_initialize(q16 Kp, q16 Ki, q16 Kd, q16 dt,
-    q16 out_min, q16 out_max, pidsettings *settings, pidstate *state) {
-    settings->Kp = Kp;
-    settings->Ki = Ki;
-    settings->Ki_times_dt = q16_mul(Ki, dt);
-    settings->Kd = Kd;
-    settings->Kd_over_dt = q16_div(Kd, dt);
+    q16 out_min, q16 out_max, pidsettings *settings) {
     settings->dt = dt;
     settings->out_min = out_min;
     settings->out_max = out_max;
-    state->i_term = 0;
-    state->last_input = 0;
+    pid_update_params(Kp, Ki, Kd, &settings);
+}
+
+void pid_update_params(q16 Kp, q16 Ki, q16 Kd, pidsettings *settings) {
+    settings->Kp = Kp;
+    settings->Ki = Ki;
+    settings->Ki_times_dt = q16_mul(Ki, settings->dt);
+    settings->Kd = Kd;
+    settings->Kd_over_dt = q16_div(Kd, settings->dt);
 }
 
 void pid_initialize_flt(float Kp, float Ki, float Kd, float dt, q16 out_min,
-    q16 out_max, pidsettings *settings, pidstate *state) {
+    q16 out_max, pidsettings *settings) {
     pid_initialize(FLT_TO_Q16(Kp), FLT_TO_Q16(Ki), FLT_TO_Q16(Kd),
-        FLT_TO_Q16(dt), out_min, out_max, settings, state);
+        FLT_TO_Q16(dt), out_min, out_max, settings);
 }
 
 q16 pid_compute(q16 input, q16 setpoint,
@@ -36,9 +38,9 @@ q16 pid_compute(q16 input, q16 setpoint,
     return clamp(output, settings->out_min, settings->out_max);
 }
 
-void pid_reset(q16 input, q16 setpoint, q16 output,
-    pidsettings *settings, pidstate *state) {
+void pid_reset(q16 input, q16 output, pidsettings *settings, pidstate *state) {
     state->i_term = clamp(output, settings->out_min,
         settings->out_max);
     state->last_input = input;
 }
+

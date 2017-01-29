@@ -23,13 +23,12 @@ typedef struct {
 } pidstate;
 
 void pid_initialize(q16 Kp, q16 Ki, q16 Kd, q16 dt, q16 out_min,
-    q16 out_max, pidsettings *settings, pidstate *state);
+    q16 out_max, pidsettings *settings);
 void pid_initialize_flt(float Kp, float Ki, float Kd, float dt, q16 out_min,
-    q16 out_max, pidsettings *settings, pidstate *state);
+    q16 out_max, pidsettings *settings);
 q16 pid_compute(q16 input, q16 setpoint,
     pidsettings *settings, pidstate *state);
-void pid_reset(q16 input, q16 setpoint, q16 output,
-    pidsettings *settings, pidstate *state);
+void pid_reset(q16 input, q16 output, pidsettings *settings, pidstate *state);
 
 #ifdef __cplusplus
 }

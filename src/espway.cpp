@@ -34,10 +34,11 @@ const uint8_t MPU_RATE = 0;
 const float SAMPLE_TIME = (1.0f + MPU_RATE) / 1000.0f;
 const int MPU_ADDR = 0x68;
 
+pidsettings velPidSettings;
 pidsettings anglePidSettings;
-pidsettings motorPidSettings;
+pidsettings motorHighPidSettings;
+pidstate velPidState;
 pidstate anglePidState;
-pidstate motorPidState;
 MPU6050 mpu;
 
 q16 targetSpeed = 0;
@@ -135,10 +136,14 @@ bool getIntDataReadyStatus() {
 void setup() {
     // Parameter calculation & initialization
     pid_initialize_flt(ANGLE_KP, ANGLE_KI, ANGLE_KD, SAMPLE_TIME,
-        -Q16_ONE, Q16_ONE, &motorPidSettings, &motorPidState);
+        -Q16_ONE, Q16_ONE, &anglePidSettings);
+    pid_initialize_flt(ANGLE_HIGH_KP, ANGLE_HIGH_KI, ANGLE_HIGH_KD, SAMPLE_TIME,
+        -Q16_ONE, Q16_ONE, &motorHighPidSettings);
+    pid_reset(0, 0, &anglePidSettings, &anglePidState);
     pid_initialize_flt(VEL_KP, VEL_KI, VEL_KD, SAMPLE_TIME,
         FALL_LOWER_BOUND, FALL_UPPER_BOUND,
-        &anglePidSettings, &anglePidState);
+        &velPidSettings);
+    pid_reset(0, 0, &velPidSettings, &velPidState);
     calculateMadgwickParams(&imuparams, MADGWICK_BETA,
         2.0f * M_PI / 180.0f * 2000.0f, SAMPLE_TIME);
 
@@ -286,9 +291,12 @@ void loop() {
         if (spitch < FALL_UPPER_BOUND && spitch > FALL_LOWER_BOUND) {
             // Perform PID update
             q16 targetAngle = pid_compute(travelSpeed, smoothedTargetSpeed,
-                &anglePidSettings, &anglePidState);
+                &velPidSettings, &velPidState);
+            bool useHighSettings =
+                spitch < RECOVER_LOWER_BOUND || spitch > RECOVER_UPPER_BOUND;
             q16 motorSpeed = -pid_compute(spitch, targetAngle,
-                &motorPidSettings, &motorPidState);
+                useHighSettings ? &motorHighPidSettings : &anglePidSettings,
+                &anglePidState);
 
             setMotors(-motorSpeed - steeringBias, -motorSpeed + steeringBias);
 
@@ -305,10 +313,10 @@ void loop() {
         if (spitch < RECOVER_UPPER_BOUND && spitch > RECOVER_LOWER_BOUND) {
             myState = RUNNING;
             setBothEyes(GREEN);
-            pid_reset(spitch, FLT_TO_Q16(STABLE_ANGLE), 0, &motorPidSettings,
-                &motorPidState);
-            pid_reset(0, 0, FLT_TO_Q16(STABLE_ANGLE), &anglePidSettings,
+            pid_reset(spitch, FLT_TO_Q16(STABLE_ANGLE), &anglePidSettings,
                 &anglePidState);
+            pid_reset(0, FLT_TO_Q16(STABLE_ANGLE), &velPidSettings,
+                &velPidState);
         }
     }
 
