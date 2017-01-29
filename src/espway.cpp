@@ -19,7 +19,7 @@
 enum logmode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE };
 enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN };
 
-const logmode LOGMODE = LOG_NONE;
+const logmode LOGMODE = LOG_PITCH;
 
 const q16 FALL_LOWER_BOUND = FLT_TO_Q16(STABLE_ANGLE - FALL_LIMIT),
           FALL_UPPER_BOUND = FLT_TO_Q16(STABLE_ANGLE + FALL_LIMIT);
@@ -36,7 +36,7 @@ const int MPU_ADDR = 0x68;
 
 pidsettings velPidSettings;
 pidsettings anglePidSettings;
-pidsettings motorHighPidSettings;
+pidsettings angleHighPidSettings;
 pidstate velPidState;
 pidstate anglePidState;
 MPU6050 mpu;
@@ -138,11 +138,10 @@ void setup() {
     pid_initialize_flt(ANGLE_KP, ANGLE_KI, ANGLE_KD, SAMPLE_TIME,
         -Q16_ONE, Q16_ONE, &anglePidSettings);
     pid_initialize_flt(ANGLE_HIGH_KP, ANGLE_HIGH_KI, ANGLE_HIGH_KD, SAMPLE_TIME,
-        -Q16_ONE, Q16_ONE, &motorHighPidSettings);
+        -Q16_ONE, Q16_ONE, &angleHighPidSettings);
     pid_reset(0, 0, &anglePidSettings, &anglePidState);
     pid_initialize_flt(VEL_KP, VEL_KI, VEL_KD, SAMPLE_TIME,
-        FALL_LOWER_BOUND, FALL_UPPER_BOUND,
-        &velPidSettings);
+        FALL_LOWER_BOUND, FALL_UPPER_BOUND, &velPidSettings);
     pid_reset(0, 0, &velPidSettings, &velPidState);
     calculateMadgwickParams(&imuparams, MADGWICK_BETA,
         2.0f * M_PI / 180.0f * 2000.0f, SAMPLE_TIME);
@@ -295,7 +294,7 @@ void loop() {
             bool useHighSettings =
                 spitch < RECOVER_LOWER_BOUND || spitch > RECOVER_UPPER_BOUND;
             q16 motorSpeed = -pid_compute(spitch, targetAngle,
-                useHighSettings ? &motorHighPidSettings : &anglePidSettings,
+                useHighSettings ? &angleHighPidSettings : &anglePidSettings,
                 &anglePidState);
 
             setMotors(motorSpeed + steeringBias, motorSpeed - steeringBias);

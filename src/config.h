@@ -1,6 +1,3 @@
-#pragma once
-
-
 // Angle PID == the PID controller which regulates motor output signal to reach
 // the target angle
 const float ANGLE_KP = 5.0f, ANGLE_KI = 10.0f, ANGLE_KD = 0.1f;
@@ -30,5 +27,5 @@ const int16_t GYRO_OFFSETS[] = { -27, -89, 14 };
 // Undervoltage cutoff check
 const float BATTERY_THRESHOLD = 7.4f;
 const unsigned long BATTERY_CHECK_INTERVAL = 500;
-const bool ENABLE_BATTERY_CHECK = true;
+const bool ENABLE_BATTERY_CHECK = false;
 
