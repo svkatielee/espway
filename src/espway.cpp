@@ -312,8 +312,7 @@ void loop() {
         if (spitch < RECOVER_UPPER_BOUND && spitch > RECOVER_LOWER_BOUND) {
             myState = RUNNING;
             setBothEyes(GREEN);
-            pid_reset(spitch, FLT_TO_Q16(STABLE_ANGLE), &anglePidSettings,
-                &anglePidState);
+            pid_reset(spitch, 0, &anglePidSettings, &anglePidState);
             pid_reset(0, FLT_TO_Q16(STABLE_ANGLE), &velPidSettings,
                 &velPidState);
         }

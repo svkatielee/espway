@@ -24,6 +24,7 @@ typedef struct {
 
 void pid_initialize(q16 Kp, q16 Ki, q16 Kd, q16 dt, q16 out_min,
     q16 out_max, pidsettings *settings);
+void pid_update_params(q16 Kp, q16 Ki, q16 Kd, pidsettings *settings);
 void pid_initialize_flt(float Kp, float Ki, float Kd, float dt, q16 out_min,
     q16 out_max, pidsettings *settings);
 q16 pid_compute(q16 input, q16 setpoint,

@@ -9,7 +9,7 @@ void pid_initialize(q16 Kp, q16 Ki, q16 Kd, q16 dt,
     settings->dt = dt;
     settings->out_min = out_min;
     settings->out_max = out_max;
-    pid_update_params(Kp, Ki, Kd, &settings);
+    pid_update_params(Kp, Ki, Kd, settings);
 }
 
 void pid_update_params(q16 Kp, q16 Ki, q16 Kd, pidsettings *settings) {
