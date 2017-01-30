@@ -15,7 +15,6 @@ The project takes advantage of the [ESP8266 Arduino core](https://github.com/esp
 Beware! There might be some nasty bugs or erratic behavior, although some major issues in the early code (watchdog resets, incorrect PID initialization) have been resolved.
 Some things TODO:
 
-* Tilt control via JS orientation event API
 * Gyro calibration
 * PID tuning graphically via the browser
 * Battery monitoring in control UI
