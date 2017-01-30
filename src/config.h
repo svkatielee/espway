@@ -1,7 +1,7 @@
 // Angle PID == the PID controller which regulates motor output signal to reach
 // the target angle
 const float ANGLE_KP = 5.0, ANGLE_KI = 10.0, ANGLE_KD = 0.1;
-const float ANGLE_HIGH_KP = 10.0, ANGLE_HIGH_KI = ANGLE_KI, ANGLE_HIGH_KD = ANGLE_KD;
+const float ANGLE_HIGH_KP = 20.0, ANGLE_HIGH_KI = ANGLE_KI, ANGLE_HIGH_KD = ANGLE_KD;
 // Velocity PID == the PID controller which regulates target angle to reach
 // the target velocity
 const float VEL_KP = 2.0, VEL_KI = 0.5, VEL_KD = 0.002;
@@ -19,7 +19,7 @@ const unsigned long ORIENTATION_STABILIZE_DURATION = 6000;
 
 const float FALL_LIMIT = 0.75,
             RECOVER_LIMIT = 0.2,
-            HIGH_PID_LIMIT = 0.3;
+            HIGH_PID_LIMIT = 0.2;
 
 const float STABLE_ANGLE = -0.2;
 
