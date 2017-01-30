@@ -150,13 +150,14 @@ void setup() {
     Wire.begin(4, 5);
     Wire.setClock(400000);
     mpuInitSucceeded = mpuInit();
-    // NeoPixel init
-    eyes.Begin();
-    setBothEyes(mpuInitSucceeded ? YELLOW : RED);
 
     if (LOGMODE != LOG_NONE) {
         Serial.begin(115200);
     }
+
+    // NeoPixel init
+    eyes.Begin();
+    setBothEyes(mpuInitSucceeded ? YELLOW : RED);
 
     // WiFi soft AP init
     WiFi.persistent(false);
