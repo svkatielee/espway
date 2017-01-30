@@ -270,7 +270,7 @@ void loop() {
     MadgwickAHRSupdateIMU_fix(&imuparams, rawAccel, rawGyro,
         &quat);
     // Calculate sine of pitch angle from quaternion
-    q16 spitch = gravityZ(&quat);
+    q16 spitch = -gravityZ(&quat);
 
     static q16 travelSpeed = 0;
     static q16 smoothedTargetSpeed = 0;
@@ -290,12 +290,12 @@ void loop() {
     } else if (myState == RUNNING) {
         if (spitch < FALL_UPPER_BOUND && spitch > FALL_LOWER_BOUND) {
             // Perform PID update
-            q16 targetAngle = pid_compute(travelSpeed, smoothedTargetSpeed,
+            q16 targetAngle = -pid_compute(travelSpeed, smoothedTargetSpeed,
                 &velPidSettings, &velPidState);
             bool useHighPid =
                 spitch < (targetAngle - FLT_TO_Q16(HIGH_PID_LIMIT)) ||
                 spitch > (targetAngle + FLT_TO_Q16(HIGH_PID_LIMIT));
-            q16 motorSpeed = -pid_compute(spitch, targetAngle,
+            q16 motorSpeed = pid_compute(spitch, targetAngle,
                 useHighPid ? &angleHighPidSettings : &anglePidSettings,
                 &anglePidState);
 
@@ -315,7 +315,7 @@ void loop() {
             myState = RUNNING;
             setBothEyes(GREEN);
             pid_reset(spitch, 0, &anglePidSettings, &anglePidState);
-            pid_reset(0, FLT_TO_Q16(STABLE_ANGLE), &velPidSettings,
+            pid_reset(0, -FLT_TO_Q16(STABLE_ANGLE), &velPidSettings,
                 &velPidState);
         }
     }

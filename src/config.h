@@ -18,10 +18,10 @@ const float MADGWICK_BETA = 0.1;
 const unsigned long ORIENTATION_STABILIZE_DURATION = 6000;
 
 const float FALL_LIMIT = 0.75,
-            RECOVER_LIMIT = 0.4,
-            HIGH_PID_LIMIT = 0.2;
+            RECOVER_LIMIT = 0.2,
+            HIGH_PID_LIMIT = 0.3;
 
-const float STABLE_ANGLE = 0.2;
+const float STABLE_ANGLE = -0.2;
 
 const int16_t GYRO_OFFSETS[] = { -27, -89, 14 };
 
