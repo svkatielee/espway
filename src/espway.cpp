@@ -69,8 +69,8 @@ void setBothEyes(RgbColor &color) {
 
 
 void setMotors(q16 leftSpeed, q16 rightSpeed) {
-    setMotorSpeed(1, 12, rightSpeed, true);
-    setMotorSpeed(0, 15, leftSpeed, true);
+    setMotorSpeed(1, 12, rightSpeed, REVERSE_RIGHT_MOTOR);
+    setMotorSpeed(0, 15, leftSpeed, REVERSE_LEFT_MOTOR);
     pwm_start();
 }
 

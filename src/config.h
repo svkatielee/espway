@@ -30,3 +30,5 @@ const float BATTERY_THRESHOLD = 7.4;
 const unsigned long BATTERY_CHECK_INTERVAL = 500;
 const bool ENABLE_BATTERY_CHECK = true;
 
+const bool REVERSE_LEFT_MOTOR = true, REVERSE_RIGHT_MOTOR = true;
+
