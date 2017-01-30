@@ -19,7 +19,7 @@
 enum logmode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE };
 enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN };
 
-const logmode LOGMODE = LOG_PITCH;
+const logmode LOGMODE = LOG_NONE;
 
 const q16 FALL_LOWER_BOUND = FLT_TO_Q16(STABLE_ANGLE - FALL_LIMIT),
           FALL_UPPER_BOUND = FLT_TO_Q16(STABLE_ANGLE + FALL_LIMIT);
@@ -293,8 +293,8 @@ void loop() {
             q16 targetAngle = pid_compute(travelSpeed, smoothedTargetSpeed,
                 &velPidSettings, &velPidState);
             bool useHighPid =
-                spitch < (targetAngle - HIGH_PID_LIMIT) ||
-                spitch > (targetAngle + HIGH_PID_LIMIT);
+                spitch < (targetAngle - FLT_TO_Q16(HIGH_PID_LIMIT)) ||
+                spitch > (targetAngle + FLT_TO_Q16(HIGH_PID_LIMIT));
             q16 motorSpeed = -pid_compute(spitch, targetAngle,
                 useHighPid ? &angleHighPidSettings : &anglePidSettings,
                 &anglePidState);
