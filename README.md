@@ -17,7 +17,6 @@ Some things TODO:
 
 * Gyro calibration
 * PID tuning graphically via the browser
-* Battery monitoring in control UI
 
 ## License
 The project is licensed under GPLv3.

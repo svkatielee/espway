@@ -22,7 +22,8 @@ enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN };
 enum ws_msg_type {
     STEERING = 0,
     REQ_QUATERNION = 1,
-    RES_QUATERNION = 2
+    RES_QUATERNION = 2,
+    BATTERY = 3
 };
 
 const logmode LOGMODE = LOG_NONE;
@@ -31,6 +32,8 @@ const q16 FALL_LOWER_BOUND = FLT_TO_Q16(STABLE_ANGLE - FALL_LIMIT),
           FALL_UPPER_BOUND = FLT_TO_Q16(STABLE_ANGLE + FALL_LIMIT);
 const q16 RECOVER_LOWER_BOUND = FLT_TO_Q16(STABLE_ANGLE - RECOVER_LIMIT),
           RECOVER_UPPER_BOUND = FLT_TO_Q16(STABLE_ANGLE + RECOVER_LIMIT);
+
+const q16 BATTERY_COEFFICIENT = FLT_TO_Q16(100.0f / BATTERY_CALIBRATION_FACTOR);
 
 const int FREQUENCY_SAMPLES = 1000;
 const int QUAT_DELAY = 50;
@@ -243,6 +246,14 @@ void sendQuaternion(const quaternion_fix * const quat) {
     sendQuat = false;
 }
 
+void sendBatteryReading(uint16_t batteryReading) {
+    uint8_t buf[3];
+    buf[0] = BATTERY;
+    uint16_t *payload = (uint16_t *)&buf[1];
+    payload[0] = q16_mul(batteryReading, BATTERY_COEFFICIENT);
+    ws.binaryAll(buf, 3);
+}
+
 
 void loop() {
     if (otaStarted) {
@@ -256,6 +267,7 @@ void loop() {
 
     static unsigned long lastBatteryCheck = 0;
     static unsigned int batteryValue = 1024;
+    static bool sendBattery = false;
 
     unsigned long curTime;
 
@@ -266,7 +278,9 @@ void loop() {
             lastBatteryCheck = curTime;
             batteryValue = q16_exponential_smooth(batteryValue, analogRead(A0),
                 FLT_TO_Q16(0.25f));
-            if (batteryValue < (unsigned int)(BATTERY_THRESHOLD * 102.4f)) {
+            sendBattery = true;
+            if (batteryValue <
+                (unsigned int)(BATTERY_THRESHOLD * BATTERY_CALIBRATION_FACTOR)) {
                 setBothEyes(BLACK);
                 mpu.setSleepEnabled(true);
                 setMotors(0, 0);
@@ -336,6 +350,11 @@ void loop() {
 
     if (LOGMODE != LOG_NONE) {
         doLog(rawAccel, rawGyro, spitch);
+    }
+
+    if (sendBattery) {
+        sendBattery = false;
+        sendBatteryReading(batteryValue);
     }
 
     static unsigned long lastSentQuat = 0;
