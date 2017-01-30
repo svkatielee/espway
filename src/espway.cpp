@@ -136,12 +136,12 @@ bool getIntDataReadyStatus() {
 void setup() {
     // Parameter calculation & initialization
     pid_initialize_flt(ANGLE_KP, ANGLE_KI, ANGLE_KD, SAMPLE_TIME,
-        -Q16_ONE, Q16_ONE, &anglePidSettings);
+        -Q16_ONE, Q16_ONE, false, &anglePidSettings);
     pid_initialize_flt(ANGLE_HIGH_KP, ANGLE_HIGH_KI, ANGLE_HIGH_KD, SAMPLE_TIME,
-        -Q16_ONE, Q16_ONE, &angleHighPidSettings);
+        -Q16_ONE, Q16_ONE, false, &angleHighPidSettings);
     pid_reset(0, 0, &anglePidSettings, &anglePidState);
     pid_initialize_flt(VEL_KP, VEL_KI, VEL_KD, SAMPLE_TIME,
-        FALL_LOWER_BOUND, FALL_UPPER_BOUND, &velPidSettings);
+        FALL_LOWER_BOUND, FALL_UPPER_BOUND, true, &velPidSettings);
     pid_reset(0, 0, &velPidSettings, &velPidState);
     calculateMadgwickParams(&imuparams, MADGWICK_BETA,
         2.0f * M_PI / 180.0f * 2000.0f, SAMPLE_TIME);
@@ -290,7 +290,7 @@ void loop() {
     } else if (myState == RUNNING) {
         if (spitch < FALL_UPPER_BOUND && spitch > FALL_LOWER_BOUND) {
             // Perform PID update
-            q16 targetAngle = -pid_compute(travelSpeed, smoothedTargetSpeed,
+            q16 targetAngle = pid_compute(travelSpeed, smoothedTargetSpeed,
                 &velPidSettings, &velPidState);
             bool useHighPid =
                 spitch < (targetAngle - FLT_TO_Q16(HIGH_PID_LIMIT)) ||
@@ -315,7 +315,7 @@ void loop() {
             myState = RUNNING;
             setBothEyes(GREEN);
             pid_reset(spitch, 0, &anglePidSettings, &anglePidState);
-            pid_reset(0, -FLT_TO_Q16(STABLE_ANGLE), &velPidSettings,
+            pid_reset(0, FLT_TO_Q16(STABLE_ANGLE), &velPidSettings,
                 &velPidState);
         }
     }
