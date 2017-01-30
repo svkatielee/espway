@@ -59,8 +59,6 @@
                 let byId = id => document.getElementById(id)
                 let ws = new WebSocket('ws://192.168.4.1/ws')
                 ws.binaryType = 'arraybuffer'
-                let sendBytes = bytes => ws.send((new Uint8Array(bytes)).buffer)
-                let sendInt8 = bytes => ws.send((new Int8Array(bytes)).buffer)
 
                 let tiltBtn = byId('tiltBtn')
                 let myCanvas = byId('joystick')
@@ -166,10 +164,19 @@
                     y = Math.min(Math.max(y, -1), 1)
                 }
 
-                window.setInterval(() => {
-                    if (ws.readyState == 1) {
-                        sendInt8([x * 127, y * 127])
+                function sendSteeringCommand(turning, speed) {
+                    if (ws.readyState !== 1) {
+                        return;
                     }
+                    let dview = new DataView(new ArrayBuffer(3))
+                    dview.setUint8(0)
+                    dview.setInt8(1, turning * 127)
+                    dview.setInt8(2, speed * 127)
+                    ws.send(dview.buffer)
+                }
+
+                window.setInterval(() => {
+                    sendSteeringCommand(x, y)
                 }, 100)
 
                 function draw() {

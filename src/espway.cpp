@@ -19,6 +19,12 @@
 enum logmode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE };
 enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN };
 
+enum ws_msg_type {
+    STEERING = 0,
+    REQ_QUATERNION = 1,
+    RES_QUATERNION = 2
+};
+
 const logmode LOGMODE = LOG_NONE;
 
 const q16 FALL_LOWER_BOUND = FLT_TO_Q16(STABLE_ANGLE - FALL_LIMIT),
@@ -46,7 +52,6 @@ q16 steeringBias = 0;
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
-AsyncWebSocketClient *wsclient = NULL;
 
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> eyes(2);
 RgbColor RED(180, 0, 0);
@@ -77,12 +82,19 @@ void setMotors(q16 leftSpeed, q16 rightSpeed) {
 
 void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
     AwsEventType type, void * arg, uint8_t *data, size_t len) {
-    int8_t *signed_data = (int8_t *)data;
-    wsclient = client;
+    if (len == 0) {
+        return;
+    }
+    uint8_t msgtype = data[0];
+    uint8_t *payload = &data[1];
+    int data_len = len - 1;
     // Parse steering command
-    if (len >= 2) {
+    if (msgtype == STEERING && data_len == 2) {
+        int8_t *signed_data = (int8_t *)payload;
         steeringBias = (FLT_TO_Q16(STEERING_FACTOR) * signed_data[0]) / 128;
         targetSpeed = (FLT_TO_Q16(SPEED_CONTROL_FACTOR) * signed_data[1]) / 128;
+    } else if (msgtype == REQ_QUATERNION) {
+        sendQuat = true;
     }
 }
 
@@ -220,12 +232,14 @@ void doLog(int16_t *rawAccel, int16_t *rawGyro, q16 spitch) {
 
 
 void sendQuaternion(const quaternion_fix * const quat) {
-    int16_t qdata[4];
+    uint8_t buf[9];
+    buf[0] = RES_QUATERNION;
+    int16_t *qdata = (int16_t *)&buf[1];
     qdata[0] = quat->q0 / 2;
     qdata[1] = quat->q1 / 2;
     qdata[2] = quat->q2 / 2;
     qdata[3] = quat->q3 / 2;
-    wsclient->binary((uint8_t *)qdata, 8);
+    ws.binaryAll(buf, 9);
     sendQuat = false;
 }
 
