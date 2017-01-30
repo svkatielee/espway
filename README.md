@@ -12,10 +12,13 @@ The project takes advantage of the [ESP8266 Arduino core](https://github.com/esp
 
 ## TODO
 
-Beware! There might be some nasty bugs or erratic behavior. Some things TODO:
+Beware! There might be some nasty bugs or erratic behavior, although some major issues in the early code (watchdog resets, incorrect PID initialization) have been resolved.
+Some things TODO:
 
-* Ensure smooth state transitions (motor control)
-* Resolve bug where something in the sketch stalls/freezes
+* Tilt control via JS orientation event API
+* Gyro calibration
+* PID tuning graphically via the browser
+* Battery monitoring in control UI
 
 ## License
 The project is licensed under GPLv3.
