@@ -291,10 +291,11 @@ void loop() {
             // Perform PID update
             q16 targetAngle = pid_compute(travelSpeed, smoothedTargetSpeed,
                 &velPidSettings, &velPidState);
-            bool useHighSettings =
-                spitch < RECOVER_LOWER_BOUND || spitch > RECOVER_UPPER_BOUND;
+            bool useHighPid =
+                spitch < (targetAngle - HIGH_PID_LIMIT) ||
+                spitch > (targetAngle + HIGH_PID_LIMIT);
             q16 motorSpeed = -pid_compute(spitch, targetAngle,
-                useHighSettings ? &angleHighPidSettings : &anglePidSettings,
+                useHighPid ? &angleHighPidSettings : &anglePidSettings,
                 &anglePidState);
 
             setMotors(motorSpeed + steeringBias, motorSpeed - steeringBias);
