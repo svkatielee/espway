@@ -193,8 +193,10 @@ void setup() {
     pwm_add_channel(13);
     pwm_add_channel(14);
     pwm_init();
-    Serial.println(WiFi.softAPIP());
-    Serial.println("Setup complete");
+    if (LOGMODE != LOG_NONE) {
+        Serial.println(WiFi.softAPIP());
+        Serial.println("Setup complete");
+    }
 }
 
 
