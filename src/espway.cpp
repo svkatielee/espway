@@ -156,6 +156,8 @@ void setup() {
 
     if (LOGMODE != LOG_NONE) {
         Serial.begin(115200);
+        delay(8000);
+        Serial.println("Starting up");
     }
 
     // WiFi soft AP init
@@ -191,6 +193,8 @@ void setup() {
     pwm_add_channel(13);
     pwm_add_channel(14);
     pwm_init();
+    Serial.println(WiFi.softAPIP());
+    Serial.println("Setup complete");
 }
 
 
@@ -334,4 +338,3 @@ void loop() {
         lastOtaHandled = curTime;
     }
 }
-
