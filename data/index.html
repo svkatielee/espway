@@ -11,6 +11,10 @@
             body, html {
                 margin: 0;
                 padding: 0;
+                text-align: center;
+            }
+
+            body, button {
                 background-color: white;
                 color: #334;
                 font-family: monospace;
@@ -28,26 +32,51 @@
 
             h1 {
                 text-align: center;
+                font-size: 2rem;
+            }
+
+            #tiltBtn {
+                margin-top: 1em;
+                font-size: 1.5rem;
+                padding: 1em 0;
+                width: 310px;
+                border-radius: 0.5em;
+                border-style: none;
+                display: none;
+            }
+
+            #heading {
+                width: 310px;
+                margin: 1em auto;
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+            }
+
+            .largetxt {
+                font-size: 2em;
             }
         </style>
     </head>
 
     <body>
-        <h1>ESPway</h1>
+        <div id='heading'>
+            <div class='largetxt left'>ESPway</div>
+            <div class='right'>BAT: <span id='battery'></span> V</div>
+        </div>
         <canvas id='joystick'></canvas>
+        <button id='tiltBtn'></button>
 
         <script>
-            (function() {
+            window.addEventListener('load', () => {
                 'use strict'
-
-                window.addEventListener('load', () => {
 
                 let byId = id => document.getElementById(id)
                 let ws = new WebSocket('ws://192.168.4.1/ws')
                 ws.binaryType = 'arraybuffer'
-                let sendBytes = bytes => ws.send((new Uint8Array(bytes)).buffer)
-                let sendInt8 = bytes => ws.send((new Int8Array(bytes)).buffer)
 
+                let tiltBtn = byId('tiltBtn')
+                let battery = byId('battery')
                 let myCanvas = byId('joystick')
                 let dpr = window.devicePixelRatio
                 let canvasWidth = myCanvas.clientWidth,
@@ -65,6 +94,18 @@
                 let currentTouchId = null
                 let pageX = 0, pageY = 0
                 let x = 0, y = 0
+                let beta = 0, gamma = 0
+                let hasDeviceOrientation = false
+                let tiltControl = false
+
+                ws.addEventListener('message', e => {
+                    let dview = new DataView(e.data)
+                    let command = dview.getUint8(0)
+                    if (command === 3 && e.data.byteLength === 3) {
+                        let batteryValue = dview.getInt16(1, true) / 100
+                        battery.innerText = batteryValue.toFixed(2)
+                    }
+                })
 
                 window.addEventListener('mousemove', e => {
                     if (mouseIsDown) {
@@ -73,7 +114,7 @@
                     }
                 })
 
-                window.addEventListener('mousedown', e => {
+                myCanvas.addEventListener('mousedown', e => {
                     mouseIsDown = true
                     pageX = e.pageX
                     pageY = e.pageY
@@ -83,7 +124,7 @@
                     mouseIsDown = false
                 })
 
-                window.addEventListener('touchstart', e => {
+                myCanvas.addEventListener('touchstart', e => {
                     currentTouchId = e.changedTouches[0].identifier
                     pageX = e.changedTouches[0].pageX
                     pageY = e.changedTouches[0].pageY
@@ -105,25 +146,63 @@
                     }
                 })
 
-                function updateXY() {
-                    if (!hasCurrentTouch && !mouseIsDown) {
-                        x = 0
-                        y = 0
-                    } else {
-                        x = pageX - myCanvas.offsetLeft - canvasWidth/2
-                        y = (canvasHeight/2 - (pageY - myCanvas.offsetTop))
-                        x /= canvasWidth / 2
-                        y /= canvasHeight / 2
-                        x = Math.min(Math.max(x, -1), 1)
-                        y = Math.min(Math.max(y, -1), 1)
+                window.addEventListener('deviceorientation', e => {
+                    if (e.beta !== null && e.gamma !== null) {
+                        if (!hasDeviceOrientation) {
+                            hasDeviceOrientation = true
+                            tiltBtn.style.display = 'inline'
+                            updateTiltBtnText()
+                        }
+                        beta = e.beta
+                        gamma = e.gamma
                     }
+                })
+
+                function updateTiltBtnText() {
+                    tiltBtn.innerText = tiltControl ?
+                        '☑ Tilt control' : '☐ Tilt control'
+                    tiltBtn.style.backgroundColor = tiltControl ?
+                        '#0bf' : '#ddd'
+                }
+
+                tiltBtn.addEventListener('click', () => {
+                    tiltControl = !tiltControl
+                    updateTiltBtnText()
+                })
+
+                function updateXY() {
+                    if (tiltControl) {
+                        x = gamma / 20
+                        y = -beta / 20
+                    } else {
+                        if (!hasCurrentTouch && !mouseIsDown) {
+                            x = 0
+                            y = 0
+                        } else {
+                            x = pageX - myCanvas.offsetLeft - canvasWidth/2
+                            y = (canvasHeight/2 - (pageY - myCanvas.offsetTop))
+                            x /= canvasWidth / 2
+                            y /= canvasHeight / 2
+                        }
+                    }
+                    x = Math.min(Math.max(x, -1), 1)
+                    y = Math.min(Math.max(y, -1), 1)
+                }
+
+                function sendSteeringCommand(turning, speed) {
+                    if (ws.readyState !== 1) {
+                        return;
+                    }
+                    let dview = new DataView(new ArrayBuffer(3))
+                    dview.setUint8(0)
+                    dview.setInt8(1, turning * 127)
+                    dview.setInt8(2, speed * 127)
+                    ws.send(dview.buffer)
                 }
 
                 window.setInterval(() => {
-                    if (ws.readyState == 1) {
-                        sendInt8([x * 127, y * 127])
-                    }
-                }, 100);
+                    sendSteeringCommand(x, y)
+                }, 100)
 
                 function draw() {
                     updateXY()
@@ -147,8 +226,7 @@
                     window.requestAnimationFrame(draw)
                 }
                 window.requestAnimationFrame(draw)
-                })
-            })()
+            })
         </script>
     </body>
 </html>

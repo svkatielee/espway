@@ -19,12 +19,21 @@
 enum logmode { LOG_FREQ, LOG_RAW, LOG_PITCH, LOG_NONE };
 enum state { STABILIZING_ORIENTATION, RUNNING, FALLEN };
 
-const logmode LOGMODE = LOG_PITCH;
+enum ws_msg_type {
+    STEERING = 0,
+    REQ_QUATERNION = 1,
+    RES_QUATERNION = 2,
+    BATTERY = 3
+};
+
+const logmode LOGMODE = LOG_NONE;
 
 const q16 FALL_LOWER_BOUND = FLT_TO_Q16(STABLE_ANGLE - FALL_LIMIT),
           FALL_UPPER_BOUND = FLT_TO_Q16(STABLE_ANGLE + FALL_LIMIT);
 const q16 RECOVER_LOWER_BOUND = FLT_TO_Q16(STABLE_ANGLE - RECOVER_LIMIT),
           RECOVER_UPPER_BOUND = FLT_TO_Q16(STABLE_ANGLE + RECOVER_LIMIT);
+
+const q16 BATTERY_COEFFICIENT = FLT_TO_Q16(100.0f / BATTERY_CALIBRATION_FACTOR);
 
 const int FREQUENCY_SAMPLES = 1000;
 const int QUAT_DELAY = 50;
@@ -46,7 +55,6 @@ q16 steeringBias = 0;
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
-AsyncWebSocketClient *wsclient = NULL;
 
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> eyes(2);
 RgbColor RED(180, 0, 0);
@@ -69,20 +77,27 @@ void setBothEyes(RgbColor &color) {
 
 
 void setMotors(q16 leftSpeed, q16 rightSpeed) {
-    setMotorSpeed(1, 12, rightSpeed, true);
-    setMotorSpeed(0, 15, leftSpeed, true);
+    setMotorSpeed(1, 12, rightSpeed, REVERSE_RIGHT_MOTOR);
+    setMotorSpeed(0, 15, leftSpeed, REVERSE_LEFT_MOTOR);
     pwm_start();
 }
 
 
 void wsCallback(AsyncWebSocket * server, AsyncWebSocketClient * client,
     AwsEventType type, void * arg, uint8_t *data, size_t len) {
-    int8_t *signed_data = (int8_t *)data;
-    wsclient = client;
+    if (len == 0) {
+        return;
+    }
+    uint8_t msgtype = data[0];
+    uint8_t *payload = &data[1];
+    int data_len = len - 1;
     // Parse steering command
-    if (len >= 2) {
+    if (msgtype == STEERING && data_len == 2) {
+        int8_t *signed_data = (int8_t *)payload;
         steeringBias = (FLT_TO_Q16(STEERING_FACTOR) * signed_data[0]) / 128;
         targetSpeed = (FLT_TO_Q16(SPEED_CONTROL_FACTOR) * signed_data[1]) / 128;
+    } else if (msgtype == REQ_QUATERNION) {
+        sendQuat = true;
     }
 }
 
@@ -136,12 +151,12 @@ bool getIntDataReadyStatus() {
 void setup() {
     // Parameter calculation & initialization
     pid_initialize_flt(ANGLE_KP, ANGLE_KI, ANGLE_KD, SAMPLE_TIME,
-        -Q16_ONE, Q16_ONE, &anglePidSettings);
+        -Q16_ONE, Q16_ONE, false, &anglePidSettings);
     pid_initialize_flt(ANGLE_HIGH_KP, ANGLE_HIGH_KI, ANGLE_HIGH_KD, SAMPLE_TIME,
-        -Q16_ONE, Q16_ONE, &angleHighPidSettings);
+        -Q16_ONE, Q16_ONE, false, &angleHighPidSettings);
     pid_reset(0, 0, &anglePidSettings, &anglePidState);
     pid_initialize_flt(VEL_KP, VEL_KI, VEL_KD, SAMPLE_TIME,
-        FALL_LOWER_BOUND, FALL_UPPER_BOUND, &velPidSettings);
+        FALL_LOWER_BOUND, FALL_UPPER_BOUND, true, &velPidSettings);
     pid_reset(0, 0, &velPidSettings, &velPidState);
     calculateMadgwickParams(&imuparams, MADGWICK_BETA,
         2.0f * M_PI / 180.0f * 2000.0f, SAMPLE_TIME);
@@ -150,15 +165,16 @@ void setup() {
     Wire.begin(4, 5);
     Wire.setClock(400000);
     mpuInitSucceeded = mpuInit();
-    // NeoPixel init
-    eyes.Begin();
-    setBothEyes(mpuInitSucceeded ? YELLOW : RED);
 
     if (LOGMODE != LOG_NONE) {
         Serial.begin(115200);
         delay(8000);
         Serial.println("Starting up");
     }
+
+    // NeoPixel init
+    eyes.Begin();
+    setBothEyes(mpuInitSucceeded ? YELLOW : RED);
 
     // WiFi soft AP init
     WiFi.persistent(false);
@@ -223,13 +239,23 @@ void doLog(int16_t *rawAccel, int16_t *rawGyro, q16 spitch) {
 
 
 void sendQuaternion(const quaternion_fix * const quat) {
-    int16_t qdata[4];
+    uint8_t buf[9];
+    buf[0] = RES_QUATERNION;
+    int16_t *qdata = (int16_t *)&buf[1];
     qdata[0] = quat->q0 / 2;
     qdata[1] = quat->q1 / 2;
     qdata[2] = quat->q2 / 2;
     qdata[3] = quat->q3 / 2;
-    wsclient->binary((uint8_t *)qdata, 8);
+    ws.binaryAll(buf, 9);
     sendQuat = false;
+}
+
+void sendBatteryReading(uint16_t batteryReading) {
+    uint8_t buf[3];
+    buf[0] = BATTERY;
+    uint16_t *payload = (uint16_t *)&buf[1];
+    payload[0] = q16_mul(batteryReading, BATTERY_COEFFICIENT);
+    ws.binaryAll(buf, 3);
 }
 
 
@@ -245,6 +271,7 @@ void loop() {
 
     static unsigned long lastBatteryCheck = 0;
     static unsigned int batteryValue = 1024;
+    static bool sendBattery = false;
 
     unsigned long curTime;
 
@@ -255,7 +282,9 @@ void loop() {
             lastBatteryCheck = curTime;
             batteryValue = q16_exponential_smooth(batteryValue, analogRead(A0),
                 FLT_TO_Q16(0.25f));
-            if (batteryValue < (unsigned int)(BATTERY_THRESHOLD * 102.4f)) {
+            sendBattery = true;
+            if (batteryValue <
+                (unsigned int)(BATTERY_THRESHOLD * BATTERY_CALIBRATION_FACTOR)) {
                 setBothEyes(BLACK);
                 mpu.setSleepEnabled(true);
                 setMotors(0, 0);
@@ -273,7 +302,7 @@ void loop() {
     MadgwickAHRSupdateIMU_fix(&imuparams, rawAccel, rawGyro,
         &quat);
     // Calculate sine of pitch angle from quaternion
-    q16 spitch = gravityZ(&quat);
+    q16 spitch = -gravityZ(&quat);
 
     static q16 travelSpeed = 0;
     static q16 smoothedTargetSpeed = 0;
@@ -295,10 +324,11 @@ void loop() {
             // Perform PID update
             q16 targetAngle = pid_compute(travelSpeed, smoothedTargetSpeed,
                 &velPidSettings, &velPidState);
-            bool useHighSettings =
-                spitch < RECOVER_LOWER_BOUND || spitch > RECOVER_UPPER_BOUND;
-            q16 motorSpeed = -pid_compute(spitch, targetAngle,
-                useHighSettings ? &angleHighPidSettings : &anglePidSettings,
+            bool useHighPid =
+                spitch < (targetAngle - FLT_TO_Q16(HIGH_PID_LIMIT)) ||
+                spitch > (targetAngle + FLT_TO_Q16(HIGH_PID_LIMIT));
+            q16 motorSpeed = pid_compute(spitch, targetAngle,
+                useHighPid ? &angleHighPidSettings : &anglePidSettings,
                 &anglePidState);
 
             setMotors(motorSpeed + steeringBias, motorSpeed - steeringBias);
@@ -324,6 +354,11 @@ void loop() {
 
     if (LOGMODE != LOG_NONE) {
         doLog(rawAccel, rawGyro, spitch);
+    }
+
+    if (sendBattery) {
+        sendBattery = false;
+        sendBatteryReading(batteryValue);
     }
 
     static unsigned long lastSentQuat = 0;
