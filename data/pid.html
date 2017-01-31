@@ -1,0 +1,65 @@
+<!doctype html>
+
+<html>
+    <head>
+        <meta charset='utf-8' />
+        <meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no' />
+
+        <title>ESPway</title>
+
+        <style>
+            body, html {
+                margin: 0;
+                padding: 0;
+            }
+
+            body, button {
+                background-color: white;
+                color: #334;
+                font-family: monospace;
+                margin: 0 auto;
+            }
+
+            .mainContainer {
+                margin: 0 auto;
+                padding: 1em;
+                width: 320px;
+            }
+
+            .mainContainer > select {
+                width: 100%;
+            }
+        </style>
+    </head>
+
+    <body>
+
+        <div class='mainContainer'>
+            <h3>PID tuning</h3>
+
+            <select>
+                <option>Angle PID</option>
+                <option>Angle PID 2</option>
+                <option>Veloctiy PID</option>
+            </select>
+
+            <slider id='pslider' label='P'></slider>
+            <slider id='islider' label='I'></slider>
+            <slider id='dslider' label='D'></slider>
+
+            <script type='riot/tag' src='slider.js'></script>
+            <script src='riot+compiler.min.js'></script>
+            <script>riot.mount('slider')</script>
+        </div>
+
+        <script>
+            window.addEventListener('load', () => {
+                'use strict'
+
+                let byId = id => document.getElementById(id)
+                let ws = new WebSocket('ws://192.168.4.1/ws')
+                ws.binaryType = 'arraybuffer'
+            })
+        </script>
+    </body>
+</html>
