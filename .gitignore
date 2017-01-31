@@ -2,3 +2,5 @@
 .piolibdeps
 *.gch
 *.o
+.clang_complete
+.gcc-flags.json
