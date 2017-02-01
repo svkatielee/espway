@@ -1,6 +1,6 @@
 <slider label={ opts.label }>
     <div class='sliderInnerContainer'>
-        <div>{ opts.label } = <span>{ mantissa }</span> × 10<sup>{ exponent }</sup></div>
+        <div><span class='bold'>{ opts.label }</span> = <span>{ mantissa }</span> × 10<sup>{ exponent }</sup></div>
         <div>
             <button onclick={ centerClick }>Center</button>
             <button onclick={ resetClick }>Reset</button>
@@ -96,6 +96,15 @@
             padding: 0.5em;
             background-color: #0bf;
             color: white;
+            font-weight: bold;
+        }
+
+        slider {
+            display: block;
+            margin-bottom: 2em;
+        }
+
+        .bold {
             font-weight: bold;
         }
     </style>
