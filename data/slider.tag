@@ -1,4 +1,4 @@
-<slider label={ opts.label }>
+<my-slider label={ opts.label }>
     <div class='sliderInnerContainer'>
         <div><span class='bold'>{ opts.label }</span> = <span>{ mantissa }</span> × 10<sup>{ exponent }</sup></div>
         <div>
@@ -99,7 +99,7 @@
             font-weight: bold;
         }
 
-        slider {
+        my-slider {
             display: block;
             margin-bottom: 2em;
         }
@@ -108,5 +108,5 @@
             font-weight: bold;
         }
     </style>
-</slider>
+</my-slider>
 
