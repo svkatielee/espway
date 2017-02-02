@@ -6,8 +6,8 @@
         </div>
         <div>
             <button onclick={ toggle }>{ enabled ? '☑ On' : '☐ Off' }</button>
-            <button onclick={ centerClick }>Center</button>
-            <button onclick={ resetClick }>Reset</button>
+            <button onclick={ centerClick } disabled={ !enabled }>Center</button>
+            <button onclick={ resetClick } disabled={ !enabled }>Reset</button>
         </div>
     </div>
 
@@ -139,9 +139,18 @@
             font-weight: bold;
         }
 
-        my-slider {
+        button:disabled {
+            background-color: #ddd;
+        }
+
+        slider {
             display: block;
-            margin-bottom: 2em;
+            padding-bottom: 1rem;
+            padding-top: 0.5rem;
+        }
+
+        slider:not(:last-child) {
+            border-bottom: #ddd 1px solid;
         }
 
         .bold {
