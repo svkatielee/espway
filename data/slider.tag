@@ -5,6 +5,7 @@
             <span>{ mantissa }</span> × 10<sup>{ exponent }</sup>
         </div>
         <div>
+            <button onclick={ toggle }>{ enabled ? '☑ On' : '☐ Off' }</button>
             <button onclick={ centerClick }>Center</button>
             <button onclick={ resetClick }>Reset</button>
         </div>
@@ -14,7 +15,7 @@
         <div class='bound left'>
             <span class='times' show={ centered }>× </span>10<sup>{ boundMin }</sup>
         </div>
-        <input type='range' ref='slider' oninput={ sliderChange }
+        <input type='range' ref='slider' oninput={ sliderChange } disabled={ !enabled }
             min={ boundMin } max={ boundMax } step={ step } />
         <div class='bound right'>
             <span class='times' show={ centered }>× </span>10<sup>{ boundMax }</sup>
@@ -45,10 +46,26 @@
             sliderValue -= log10(this.centerValue)
         }
         this.refs.slider.value = sliderValue
-        let exponent = Math.floor(log10(this.value))
-        let mantissa = this.value / Math.pow(10, exponent)
-        this.mantissa = mantissa.toFixed(1)
-        this.exponent = exponent
+        if (this.value == 0) {
+            this.mantissa = 0
+            this.exponent = 0
+        } else {
+            let exponent = Math.floor(log10(this.value))
+            let mantissa = this.value / Math.pow(10, exponent)
+            this.mantissa = mantissa.toFixed(1)
+            this.exponent = exponent
+        }
+    }
+
+    enable() {
+        this.resetSlider()
+        this.value = Math.pow(10, this.boundMin)
+        this.enabled = true
+    }
+
+    disable() {
+        this.value = 0
+        this.enabled = false
     }
 
     resetSlider() {
@@ -67,10 +84,22 @@
         this.resetSlider()
     }
 
+    toggle(e) {
+        if (this.enabled) {
+            this.disable()
+        } else {
+            this.enable()
+        }
+    }
+
     this.resetSlider()
+    this.enabled = false
 
     this.on('mount', () => {
         this.value = this.opts.myValue
+        if (this.value > 0) {
+            this.enabled = true
+        }
         this.update()
     })
 
