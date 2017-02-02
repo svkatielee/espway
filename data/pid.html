@@ -38,31 +38,83 @@
         <div class='mainContainer'>
             <h3>PID tuning</h3>
 
-            <select>
-                <option>Angle PID</option>
-                <option>Angle PID 2</option>
-                <option>Velocity PID</option>
+            <select id='pidSelect'>
+                <option value='angle'>Angle PID</option>
+                <option value='angle2'>Angle PID 2</option>
+                <option value='velocity'>Velocity PID</option>
             </select>
 
-            <pid-sliders></pid-sliders>
+            <slider id='pslider' label='P'></slider>
+            <slider id='islider' label='I'></slider>
+            <slider id='dslider' label='D'></slider>
         </div>
 
         <script type='riot/tag' src='slider.tag'></script>
-        <script type='riot/tag' src='pid-sliders.tag'></script>
         <script src='riot+compiler.min.js.gz'></script>
         <script>
             window.addEventListener('load', () => {
                 'use strict'
 
-                let byId = id => document.getElementById(id)
+                const PID_SEND_INTERVAL = 100
+                const PID_LIMITS = {
+                    'angle': {
+                        pMin: -3, pMax: 2,
+                        iMin: -3, iMax: 2,
+                        dMin: -3, dMax: 2
+                    },
+                    'angle2': {
+                        pMin: -3, pMax: 2,
+                        iMin: -3, iMax: 2,
+                        dMin: -3, dMax: 2
+                    },
+                    'velocity': {
+                        pMin: -3, pMax: 2,
+                        iMin: -3, iMax: 2,
+                        dMin: -4, dMax: 1
+                    }
+                }
+
                 let ws = new WebSocket('ws://192.168.4.1/ws')
                 ws.binaryType = 'arraybuffer'
 
-                riot.mount('pid-sliders', {
-                    pMin: -3, pMax: 2, pValue: 0.001,
-                    iMin: -3, iMax: 2, iValue: 0.001,
-                    dMin: -4, dMax: 1, dValue: 0
-                })
+                let pidSelect = document.getElementById('pidSelect')
+
+                function mountSliders(limits, values) {
+                    riot.mount('#pslider', {
+                        boundMin: limits.pMin,
+                        boundMax: limits.pMax,
+                        myValue: values.pValue
+                    })
+                    riot.mount('#islider', {
+                        boundMin: limits.iMin,
+                        boundMax: limits.iMax,
+                        myValue: values.iValue
+                    })
+                    riot.mount('#dslider', {
+                        boundMin: limits.dMin,
+                        boundMax: limits.dMax,
+                        myValue: values.dValue
+                    })
+                }
+
+                function fetchPidValues() {
+                    // TODO ask ws for updated values
+                }
+
+                function sendPidValues() {
+                    // TODO
+                }
+
+                function showPidValues() {
+                    let pidName = pidSelect.value
+                    mountSliders(PID_LIMITS[pidName],
+                        { pValue: 0.001, iValue: 0.001, dValue: 0 })
+                }
+                pidSelect.addEventListener('change', fetchPidValues)
+
+                // TODO run these when ws is connected
+                showPidValues()
+                setInterval(sendPidValues, PID_SEND_INTERVAL)
             })
         </script>
     </body>

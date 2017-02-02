@@ -137,10 +137,13 @@
             background-color: #0bf;
             color: white;
             font-weight: bold;
+            height: 2.5em;
+            border: none;
         }
 
         button:disabled {
             background-color: #ddd;
+            border: none;
         }
 
         slider {
