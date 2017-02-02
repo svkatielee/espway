@@ -1,4 +1,4 @@
-<my-slider label={ opts.label }>
+<my-slider my-value={ value }>
     <div class='sliderInnerContainer'>
         <div><span class='bold'>{ opts.label }</span> = <span>{ mantissa }</span> × 10<sup>{ exponent }</sup></div>
         <div>
@@ -29,42 +29,51 @@
     }
 
     sliderChange(e) {
-        this.refreshValue()
+        let value = Math.pow(10, this.refs.slider.value)
+        if (this.centered) {
+            value *= this.centerValue
+        }
+        this.value = value
+        this.opts.onChange(value)
     }
 
     refreshValue() {
-        let val = this.refs.slider.value
-        let expval = Math.pow(10, val)
+        let sliderValue = log10(this.value)
         if (this.centered) {
-            expval *= this.centerValue
+            sliderValue -= log10(this.centerValue)
         }
-        let exponent = Math.floor(log10(expval))
-        let mantissa = expval / Math.pow(10, exponent)
+        this.refs.slider.value = sliderValue
+        let exponent = Math.floor(log10(this.value))
+        let mantissa = this.value / Math.pow(10, exponent)
         this.mantissa = mantissa.toFixed(1)
         this.exponent = exponent
     }
 
+    resetSlider() {
+        this.centered = false
+        this.setBounds(this.opts.boundMin, this.opts.boundMax)
+    }
+
     centerClick(e) {
         this.centered = true
-        let val = this.refs.slider.value
-        this.centerValue = Math.pow(10, val)
+        this.centerValue = this.value
         this.setBounds(-1, 1)
         this.refs.slider.value = 0
     }
 
     resetClick(e) {
-        this.centered = false
-        this.setBounds(-2, 3)
+        this.resetSlider()
     }
 
-    this.centered = false
-    this.centerValue = 0
-    this.setBounds(-2, 3)
+    this.resetSlider()
 
     this.on('mount', () => {
-        this.refs.slider.value = this.boundMin
-        this.refreshValue()
+        this.value = this.opts.myValue
         this.update()
+    })
+
+    this.on('update', () => {
+        this.refreshValue()
     })
 
     <style>
