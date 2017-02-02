@@ -1,6 +1,9 @@
-<my-slider my-value={ value }>
+<slider my-value={ value }>
     <div class='sliderInnerContainer'>
-        <div><span class='bold'>{ opts.label }</span> = <span>{ mantissa }</span> × 10<sup>{ exponent }</sup></div>
+        <div>
+            <span class='bold'>{ opts.label }</span> =
+            <span>{ mantissa }</span> × 10<sup>{ exponent }</sup>
+        </div>
         <div>
             <button onclick={ centerClick }>Center</button>
             <button onclick={ resetClick }>Reset</button>
@@ -11,7 +14,7 @@
         <div class='bound left'>
             <span class='times' show={ centered }>× </span>10<sup>{ boundMin }</sup>
         </div>
-        <input type='range' ref='slider' oninput={ sliderChange } value={ sliderValue }
+        <input type='range' ref='slider' oninput={ sliderChange }
             min={ boundMin } max={ boundMax } step={ step } />
         <div class='bound right'>
             <span class='times' show={ centered }>× </span>10<sup>{ boundMax }</sup>
@@ -34,7 +37,6 @@
             value *= this.centerValue
         }
         this.value = value
-        this.opts.onChange(value)
     }
 
     refreshValue() {
@@ -117,5 +119,5 @@
             font-weight: bold;
         }
     </style>
-</my-slider>
+</slider>
 

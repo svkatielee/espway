@@ -43,13 +43,11 @@
                 <option>Velocity PID</option>
             </select>
 
-            <my-slider id='pslider' label='P' bound-min='-3' bound-max='2' my-value='0.001'></my-slider>
-            <my-slider id='islider' label='I' bound-min='-3' bound-max='2'></my-slider>
-            <my-slider id='dslider' label='D' bound-min='-4' bound-max='1'></my-slider>
-
+            <pid-sliders></pid-sliders>
         </div>
 
         <script type='riot/tag' src='slider.tag'></script>
+        <script type='riot/tag' src='pid-sliders.tag'></script>
         <script src='riot+compiler.min.js.gz'></script>
         <script>
             window.addEventListener('load', () => {
@@ -59,12 +57,10 @@
                 let ws = new WebSocket('ws://192.168.4.1/ws')
                 ws.binaryType = 'arraybuffer'
 
-                function onSliderChange(value) {
-                    console.log('value changed: ' + value)
-                }
-
-                riot.mount('#pslider', {
-                    onChange: onSliderChange
+                riot.mount('pid-sliders', {
+                    pMin: -3, pMax: 2, pValue: 0.001,
+                    iMin: -3, iMax: 2, iValue: 0.001,
+                    dMin: -4, dMax: 1, dValue: 0.0001
                 })
             })
         </script>
