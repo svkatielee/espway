@@ -8,7 +8,8 @@ The project takes advantage of the [ESP8266 Arduino core](https://github.com/esp
 [PlatformIO](http://platformio.org/) and
 [some](https://github.com/jrowberg/i2cdevlib/tree/master/Arduino/MPU6050)
 [excellent](https://github.com/me-no-dev/ESPAsyncWebServer)
-[libraries](https://github.com/Makuna/NeoPixelBus).
+[libraries](https://github.com/Makuna/NeoPixelBus). Instead of Arduino's `analogWrite`,
+StephanBruens's [ESP8266_new_pwm](https://github.com/StefanBruens/ESP8266_new_pwm) is used for running the motors.
 
 ## TODO
 
